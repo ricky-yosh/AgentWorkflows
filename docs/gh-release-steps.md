@@ -3,10 +3,10 @@
 ## 1. Archive & export in Xcode
 
 ```
-Product → Archive → Distribute App → Copy App
+Product → Archive → Distribute App → Custom → Copy App
 ```
 
-Choose "Copy App" (not App Store or notarization). This produces a plain `.app` bundle.
+Choose "Custom", then "Copy App". This produces a plain unsigned `.app` bundle without requiring an Apple Developer account.
 
 ## 2. Zip it
 
