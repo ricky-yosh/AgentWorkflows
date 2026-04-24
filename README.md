@@ -51,6 +51,16 @@ Skills follow the open Agent Skills standard and work across all supported agent
 - **Delete session** — right-click the session in the sidebar
 - **Open diff viewer** — configurable external diff tool
 
+## Installation
+
+Download the latest `AgentWorkflows.zip` from [Releases](../../releases), unzip, and drag `AgentWorkflows.app` to `/Applications`.
+
+Since the app is unsigned, clear the quarantine flag before opening:
+
+```bash
+xattr -cr AgentWorkflows.app
+```
+
 ## Session Storage
 
 - Session metadata: `.aw/` (committed to git)
