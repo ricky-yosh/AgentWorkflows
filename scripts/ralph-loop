@@ -1,0 +1,246 @@
+#!/usr/bin/env bash
+# ralph-loop — invoke the /ralph skill iteratively until tasks.json is complete.
+#
+# Usage:
+#   ./scripts/ralph-loop [MAX_ITERATIONS]
+#
+# Default MAX_ITERATIONS: 25
+# Requires: claude, jq, git (warning only)
+# Expects in CWD: tasks.json, PRD.md, progress.txt, UBIQUITOUS_LANGUAGE.md
+# Writes per-iteration logs to .ralph-logs/iter-N.log
+
+set -uo pipefail
+
+MAX_ITER="${1:-25}"
+TASKS_FILE="tasks.json"
+LOG_DIR=".ralph-logs"
+STALL_LIMIT=3
+START_TIME=$(date +%s)
+
+# ─── colors ─────────────────────────────────────────────────────────────────
+if [[ -t 1 ]]; then
+    RESET=$'\e[0m'; BOLD=$'\e[1m'; DIM=$'\e[2m'
+    RED=$'\e[31m'; GREEN=$'\e[32m'; YELLOW=$'\e[33m'
+    BLUE=$'\e[34m'; MAGENTA=$'\e[35m'; CYAN=$'\e[36m'
+    GREY=$'\e[90m'
+else
+    RESET=""; BOLD=""; DIM=""; RED=""; GREEN=""; YELLOW=""
+    BLUE=""; MAGENTA=""; CYAN=""; GREY=""
+fi
+
+die()  { printf "${RED}✗ %s${RESET}\n" "$*" >&2; exit 1; }
+warn() { printf "${YELLOW}⚠ %s${RESET}\n" "$*" >&2; }
+
+# ─── pre-flight ─────────────────────────────────────────────────────────────
+command -v claude >/dev/null || die "claude CLI not found on PATH"
+command -v jq >/dev/null     || die "jq not found (brew install jq)"
+[[ -f "$TASKS_FILE" ]]        || die "$TASKS_FILE not found in $(pwd)"
+
+# git sanity (warning only — ralph commits per task)
+if git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+    branch=$(git symbolic-ref --short HEAD 2>/dev/null || echo "HEAD")
+    if [[ "$branch" == "main" || "$branch" == "master" ]]; then
+        warn "on '$branch' — Ralph will commit here. A throwaway feature branch is safer."
+        read -rp "  Continue? [y/N] " ans
+        [[ "$ans" =~ ^[Yy]$ ]] || { echo "aborted."; exit 0; }
+    fi
+    if [[ -n "$(git status --porcelain 2>/dev/null)" ]]; then
+        warn "working tree has uncommitted changes — Ralph's commits may include them"
+    fi
+else
+    warn "not in a git repo — Ralph expects to commit each task"
+fi
+
+mkdir -p "$LOG_DIR"
+
+# ─── helpers ────────────────────────────────────────────────────────────────
+count_total()  { jq 'length' "$TASKS_FILE"; }
+count_passed() { jq '[.[] | select(.passes == true)] | length' "$TASKS_FILE"; }
+
+next_task_line() {
+    jq -r '
+        (map(select(.passes == false))[0]
+            // {id: null, description: null, category: null, effort: null})
+        | if .id == null then "—" else
+            "#\(.id)  [\(.category)/\(.effort)]  \(.description)"
+          end
+    ' "$TASKS_FILE"
+}
+
+passes_snapshot() {
+    jq -c '[.[] | {id, passes}]' "$TASKS_FILE"
+}
+
+elapsed_str() {
+    local e=$(( $(date +%s) - START_TIME ))
+    if (( e < 60 )); then printf "%ds" "$e"
+    else printf "%dm %ds" $((e / 60)) $((e % 60))
+    fi
+}
+
+render_bar() {
+    local passed=$1 total=$2 width=30
+    local filled=$(( total > 0 ? passed * width / total : 0 ))
+    local i
+    printf "${GREEN}"
+    for ((i=0; i<filled; i++)); do printf "█"; done
+    printf "${GREY}"
+    for ((i=filled; i<width; i++)); do printf "·"; done
+    printf "${RESET}"
+}
+
+render_task_list() {
+    jq -r '.[] |
+        if .passes
+        then "  \u001b[32m✓\u001b[0m  #\(.id)  \u001b[2m\(.description)\u001b[0m"
+        else "  \u001b[90m·\u001b[0m  #\(.id)  \(.description)"
+        end' "$TASKS_FILE"
+}
+
+render_header() {
+    local iter=$1 passed=$2 total=$3
+    local line="─────────────────────────────────────────────"
+    printf "\n${BOLD}${MAGENTA}╭─ Ralph · iteration %d/%d %s${RESET}\n" "$iter" "$MAX_ITER" "${line:0:$((30 - ${#iter} - ${#MAX_ITER}))}"
+    printf "${BOLD}${MAGENTA}│${RESET}  "
+    render_bar "$passed" "$total"
+    printf "  ${BOLD}%d/%d${RESET} ${DIM}passed · %s elapsed${RESET}\n" "$passed" "$total" "$(elapsed_str)"
+    printf "${BOLD}${MAGENTA}│${RESET}  ${DIM}next:${RESET} ${BOLD}%s${RESET}\n" "$(next_task_line)"
+    printf "${BOLD}${MAGENTA}╰─────────────────────────────────────────────${RESET}\n"
+}
+
+render_summary_success() {
+    local total=$1 iterations=$2
+    printf "\n${BOLD}${GREEN}╭─────────────────────────────────────────────${RESET}\n"
+    printf "${BOLD}${GREEN}│${RESET}  ${BOLD}✓ All %d tasks passed${RESET}\n" "$total"
+    printf "${BOLD}${GREEN}│${RESET}  ${DIM}%d iterations · %s${RESET}\n" "$iterations" "$(elapsed_str)"
+    printf "${BOLD}${GREEN}╰─────────────────────────────────────────────${RESET}\n\n"
+}
+
+render_summary_exhausted() {
+    local passed=$1 total=$2
+    printf "\n${BOLD}${YELLOW}╭─────────────────────────────────────────────${RESET}\n"
+    printf "${BOLD}${YELLOW}│${RESET}  ${BOLD}⚠ Max iterations reached${RESET}\n"
+    printf "${BOLD}${YELLOW}│${RESET}  ${BOLD}%d/%d${RESET} tasks passed ${DIM}· %s${RESET}\n" "$passed" "$total" "$(elapsed_str)"
+    printf "${BOLD}${YELLOW}│${RESET}  ${DIM}review %s and progress.txt${RESET}\n" "$LOG_DIR"
+    printf "${BOLD}${YELLOW}╰─────────────────────────────────────────────${RESET}\n\n"
+}
+
+render_summary_stalled() {
+    local passed=$1 total=$2 stalls=$3
+    printf "\n${BOLD}${RED}╭─────────────────────────────────────────────${RESET}\n"
+    printf "${BOLD}${RED}│${RESET}  ${BOLD}✗ Stalled after %d iterations with no progress${RESET}\n" "$stalls"
+    printf "${BOLD}${RED}│${RESET}  ${BOLD}%d/%d${RESET} tasks passed ${DIM}· %s${RESET}\n" "$passed" "$total" "$(elapsed_str)"
+    printf "${BOLD}${RED}│${RESET}  ${DIM}something's blocking Ralph — check progress.txt${RESET}\n"
+    printf "${BOLD}${RED}╰─────────────────────────────────────────────${RESET}\n\n"
+}
+
+# ─── banner ─────────────────────────────────────────────────────────────────
+printf "\n${BOLD}${CYAN}╭─────────────────────────────────────────────${RESET}\n"
+printf "${BOLD}${CYAN}│${RESET}  ${BOLD}Ralph loop${RESET}\n"
+printf "${BOLD}${CYAN}│${RESET}  ${DIM}max:${RESET} %s ${DIM}iter${RESET}   ${DIM}cwd:${RESET} %s\n" "$MAX_ITER" "$(pwd)"
+printf "${BOLD}${CYAN}│${RESET}  ${DIM}logs:${RESET} %s/\n" "$LOG_DIR"
+printf "${BOLD}${CYAN}╰─────────────────────────────────────────────${RESET}\n"
+
+total_initial=$(count_total)
+[[ "$total_initial" -gt 0 ]] || die "$TASKS_FILE is empty — add tasks before running ralph-loop"
+
+printf "\n${BOLD}Initial backlog${RESET} ${DIM}(%d tasks)${RESET}\n" "$total_initial"
+render_task_list
+
+# ─── loop ───────────────────────────────────────────────────────────────────
+iter=0
+stall_count=0
+
+while [[ $iter -lt $MAX_ITER ]]; do
+    iter=$((iter + 1))
+    total=$(count_total)
+    passed=$(count_passed)
+
+    if [[ $passed -eq $total ]]; then
+        render_summary_success "$total" "$((iter - 1))"
+        exit 0
+    fi
+
+    render_header "$iter" "$passed" "$total"
+
+    log_file="$LOG_DIR/iter-$iter.log"
+    snapshot_before=$(passes_snapshot)
+
+    printf "\n${DIM}claude running (log: %s)${RESET}\n" "$log_file"
+    printf "${GREY}───────────────────────── stream ─────────────────────────${RESET}\n"
+
+    # stream claude output as JSON events → format for humans → indent → log raw.
+    # --output-format=stream-json emits one JSON event per message/tool-call as
+    # it happens. --verbose is required alongside it. jq formats each event into
+    # a short human line; awk adds the grey rule and forces per-line flushing.
+    if claude -p --permission-mode acceptEdits \
+            --model sonnet \
+            --output-format stream-json --verbose "/ralph" 2>&1 \
+        | tee "$log_file" \
+        | jq --unbuffered -r '
+            try (
+              if .type == "assistant" then
+                (.message.content[]? |
+                  if .type == "text" then .text
+                  elif .type == "tool_use" then
+                    "\u001b[36m→ \(.name)\u001b[0m " +
+                      (try (.input | tojson | .[0:140]) catch "")
+                  else empty end)
+              elif .type == "user" then
+                (.message.content[]? |
+                  if .type == "tool_result" then
+                    ( if (.content | type) == "string" then .content
+                      else (.content | map(.text? // "") | join(" "))
+                      end
+                    )
+                    | gsub("\n"; " ") | .[0:200]
+                    | "\u001b[90m  ↳ \(.)\u001b[0m"
+                  else empty end)
+              elif .type == "result" then
+                "\u001b[35m[done]\u001b[0m"
+              elif .type == "system" and .subtype == "init" then
+                "\u001b[2msession: \(.session_id // "?")\u001b[0m"
+              else empty end
+            ) catch empty
+          ' \
+        | awk -v pfx="${GREY}│${RESET} " '{print pfx $0; fflush()}'
+    then
+        :
+    else
+        pipe_status="${PIPESTATUS[0]:-0}"
+        printf "\n${RED}✗ claude exited non-zero (status %s) — stopping loop${RESET}\n" "$pipe_status"
+        printf "${DIM}full log: %s${RESET}\n\n" "$log_file"
+        exit 1
+    fi
+
+    printf "${GREY}──────────────────────── end stream ──────────────────────${RESET}\n"
+
+    # stall detection — did this iteration flip any task's passes flag?
+    snapshot_after=$(passes_snapshot)
+    if [[ "$snapshot_before" == "$snapshot_after" ]]; then
+        stall_count=$((stall_count + 1))
+        warn "no progress this iteration (stall $stall_count/$STALL_LIMIT) — see progress.txt"
+        if [[ $stall_count -ge $STALL_LIMIT ]]; then
+            passed_final=$(count_passed)
+            total_final=$(count_total)
+            render_summary_stalled "$passed_final" "$total_final" "$STALL_LIMIT"
+            exit 3
+        fi
+    else
+        stall_count=0
+    fi
+
+    # give the terminal a breath between iterations
+    sleep 1
+done
+
+# ─── exhausted ──────────────────────────────────────────────────────────────
+passed_final=$(count_passed)
+total_final=$(count_total)
+if [[ $passed_final -eq $total_final ]]; then
+    render_summary_success "$total_final" "$iter"
+    exit 0
+fi
+
+render_summary_exhausted "$passed_final" "$total_final"
+exit 2

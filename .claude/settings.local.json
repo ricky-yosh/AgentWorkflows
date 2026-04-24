@@ -1,0 +1,35 @@
+{
+  "permissions": {
+    "allow": [
+      "WebSearch",
+      "Bash(xcodebuild test:*)",
+      "Bash(xcodebuild -scheme AgentWorkflows -destination 'platform=macOS' build)",
+      "Bash(xcodebuild -scheme AgentWorkflows -destination 'platform=macOS' test)",
+      "Bash(xcodebuild -project AgentWorkflows.xcodeproj -scheme AgentWorkflows -destination 'platform=macOS' build)",
+      "Bash(xcodebuild -project AgentWorkflows.xcodeproj -scheme AgentWorkflows -destination 'platform=macOS' test)",
+      "Bash(xcodebuild:*)",
+      "Bash(xcodebuild -project AgentWorkflows.xcodeproj -list:*)",
+      "Bash(grep -v \"^$\")",
+      "Bash(grep -v \"^[[:space:]]*$\")",
+      "Bash(grep:*)",
+      "Read(//Users/ryoshioka/Library/Developer/Xcode/DerivedData/AgentWorkflows-gnplfiayycrhizejhketbgdvpalk/Build/Products/Debug/AgentWorkflows.app/Contents/Resources/**)",
+      "Bash(python3:*)",
+      "Read(//tmp/**)",
+      "Read(//Users/ryoshioka/.claude/**)",
+      "WebFetch(domain:leehanchung.github.io)",
+      "Bash(swift:*)",
+      "WebFetch(domain:aider.chat)",
+      "WebFetch(domain:www.aihero.dev)",
+      "Bash(bash -n /Users/ryoshioka/Documents/claude-tests/AgentWorkflows/scripts/ralph-loop)",
+      "Edit(//Users/ryoshioka/.claude/skills/**)",
+      "Write(//Users/ryoshioka/.claude/skills/**)",
+      "Write(//Users/ryoshioka/Documents/claude-tests/AgentWorkflows/.aw-cache/**)",
+      "Edit(//Users/ryoshioka/Documents/claude-tests/AgentWorkflows/.aw-cache/**)",
+      "Bash(touch:*)",
+      "Bash(mkdir:*)",
+      "Bash(: >:*)",
+      "Bash(printf:*)",
+      "Bash(codex exec:*)"
+    ]
+  }
+}
