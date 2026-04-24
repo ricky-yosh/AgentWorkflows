@@ -1,0 +1,6 @@
+.aw-cache/
+
+# Xcode user-specific files
+xcuserdata/
+*.xcuserstate
+xcschememanagement.plist
