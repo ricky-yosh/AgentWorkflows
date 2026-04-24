@@ -1,0 +1,648 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		90B232412F888C3E00D1B1D4 /* SwiftTerm in Frameworks */ = {isa = PBXBuildFile; productRef = 906E9F1C2F87A000009DC834 /* SwiftTerm */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		906E9EFE2F86C130009DC834 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 906E9EE62F86C12E009DC834 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 906E9EED2F86C12E009DC834;
+			remoteInfo = AgentWorkflows;
+		};
+		906E9F082F86C130009DC834 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 906E9EE62F86C12E009DC834 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 906E9EED2F86C12E009DC834;
+			remoteInfo = AgentWorkflows;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXFileReference section */
+		906E9EEE2F86C12E009DC834 /* AgentWorkflows.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = AgentWorkflows.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		906E9EFD2F86C130009DC834 /* AgentWorkflowsTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = AgentWorkflowsTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		906E9F072F86C130009DC834 /* AgentWorkflowsUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = AgentWorkflowsUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+/* End PBXFileReference section */
+
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		9014FC042F900000009DC834 /* Exceptions for "AgentWorkflows" folder in "AgentWorkflows" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				"Resources/Skills/grill-me/SKILL.md",
+				"Resources/Skills/prd-to-tasks/SKILL.md",
+				Resources/Skills/qa/SKILL.md,
+				Resources/Skills/ralph/SKILL.md,
+				"Resources/Skills/to-prd/SKILL.md",
+				"Resources/Skills/ubiquitous-language/SKILL.md",
+			);
+			target = 906E9EED2F86C12E009DC834 /* AgentWorkflows */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
+
+/* Begin PBXFileSystemSynchronizedRootGroup section */
+		906E9EF02F86C12E009DC834 /* AgentWorkflows */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				9014FC042F900000009DC834 /* Exceptions for "AgentWorkflows" folder in "AgentWorkflows" target */,
+			);
+			path = AgentWorkflows;
+			sourceTree = "<group>";
+		};
+		906E9F002F86C130009DC834 /* AgentWorkflowsTests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = AgentWorkflowsTests;
+			sourceTree = "<group>";
+		};
+/* End PBXFileSystemSynchronizedRootGroup section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		906E9EEB2F86C12E009DC834 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				90B232412F888C3E00D1B1D4 /* SwiftTerm in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		906E9EFA2F86C130009DC834 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		906E9F042F86C130009DC834 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		906E9EE52F86C12E009DC834 = {
+			isa = PBXGroup;
+			children = (
+				906E9EF02F86C12E009DC834 /* AgentWorkflows */,
+				906E9F002F86C130009DC834 /* AgentWorkflowsTests */,
+				906E9EEF2F86C12E009DC834 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		906E9EEF2F86C12E009DC834 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				906E9EEE2F86C12E009DC834 /* AgentWorkflows.app */,
+				906E9EFD2F86C130009DC834 /* AgentWorkflowsTests.xctest */,
+				906E9F072F86C130009DC834 /* AgentWorkflowsUITests.xctest */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		906E9EED2F86C12E009DC834 /* AgentWorkflows */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 906E9F112F86C130009DC834 /* Build configuration list for PBXNativeTarget "AgentWorkflows" */;
+			buildPhases = (
+				906E9EEA2F86C12E009DC834 /* Sources */,
+				906E9EEB2F86C12E009DC834 /* Frameworks */,
+				906E9EEC2F86C12E009DC834 /* Resources */,
+				9014FC002F900000009DC834 /* Generate Skills Manifest */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				906E9EF02F86C12E009DC834 /* AgentWorkflows */,
+			);
+			name = AgentWorkflows;
+			packageProductDependencies = (
+				906E9F1C2F87A000009DC834 /* SwiftTerm */,
+			);
+			productName = AgentWorkflows;
+			productReference = 906E9EEE2F86C12E009DC834 /* AgentWorkflows.app */;
+			productType = "com.apple.product-type.application";
+		};
+		906E9EFC2F86C130009DC834 /* AgentWorkflowsTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 906E9F142F86C130009DC834 /* Build configuration list for PBXNativeTarget "AgentWorkflowsTests" */;
+			buildPhases = (
+				906E9EF92F86C130009DC834 /* Sources */,
+				906E9EFA2F86C130009DC834 /* Frameworks */,
+				906E9EFB2F86C130009DC834 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				906E9EFF2F86C130009DC834 /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				906E9F002F86C130009DC834 /* AgentWorkflowsTests */,
+			);
+			name = AgentWorkflowsTests;
+			packageProductDependencies = (
+			);
+			productName = AgentWorkflowsTests;
+			productReference = 906E9EFD2F86C130009DC834 /* AgentWorkflowsTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
+		906E9F062F86C130009DC834 /* AgentWorkflowsUITests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 906E9F172F86C130009DC834 /* Build configuration list for PBXNativeTarget "AgentWorkflowsUITests" */;
+			buildPhases = (
+				906E9F032F86C130009DC834 /* Sources */,
+				906E9F042F86C130009DC834 /* Frameworks */,
+				906E9F052F86C130009DC834 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				906E9F092F86C130009DC834 /* PBXTargetDependency */,
+			);
+			name = AgentWorkflowsUITests;
+			packageProductDependencies = (
+			);
+			productName = AgentWorkflowsUITests;
+			productReference = 906E9F072F86C130009DC834 /* AgentWorkflowsUITests.xctest */;
+			productType = "com.apple.product-type.bundle.ui-testing";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		906E9EE62F86C12E009DC834 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastSwiftUpdateCheck = 2630;
+				LastUpgradeCheck = 2640;
+				TargetAttributes = {
+					906E9EED2F86C12E009DC834 = {
+						CreatedOnToolsVersion = 26.3;
+					};
+					906E9EFC2F86C130009DC834 = {
+						CreatedOnToolsVersion = 26.3;
+						TestTargetID = 906E9EED2F86C12E009DC834;
+					};
+					906E9F062F86C130009DC834 = {
+						CreatedOnToolsVersion = 26.3;
+						TestTargetID = 906E9EED2F86C12E009DC834;
+					};
+				};
+			};
+			buildConfigurationList = 906E9EE92F86C12E009DC834 /* Build configuration list for PBXProject "AgentWorkflows" */;
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+			);
+			mainGroup = 906E9EE52F86C12E009DC834;
+			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				906E9F1A2F87A000009DC834 /* XCRemoteSwiftPackageReference "SwiftTerm" */,
+			);
+			preferredProjectObjectVersion = 77;
+			productRefGroup = 906E9EEF2F86C12E009DC834 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				906E9EED2F86C12E009DC834 /* AgentWorkflows */,
+				906E9EFC2F86C130009DC834 /* AgentWorkflowsTests */,
+				906E9F062F86C130009DC834 /* AgentWorkflowsUITests */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		906E9EEC2F86C12E009DC834 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		906E9EFB2F86C130009DC834 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		906E9F052F86C130009DC834 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXShellScriptBuildPhase section */
+		9014FC002F900000009DC834 /* Generate Skills Manifest */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+				"$(SRCROOT)/scripts/generate-skills-manifest.sh",
+				"$(SRCROOT)/AgentWorkflows/Engine/PresenceChecker.swift",
+				"$(SRCROOT)/AgentWorkflows/Resources/Skills/ralph/SKILL.md",
+				"$(SRCROOT)/AgentWorkflows/Resources/Skills/grill-me/SKILL.md",
+				"$(SRCROOT)/AgentWorkflows/Resources/Skills/ubiquitous-language/SKILL.md",
+				"$(SRCROOT)/AgentWorkflows/Resources/Skills/to-prd/SKILL.md",
+				"$(SRCROOT)/AgentWorkflows/Resources/Skills/prd-to-tasks/SKILL.md",
+				"$(SRCROOT)/AgentWorkflows/Resources/Skills/qa/SKILL.md",
+			);
+			name = "Generate Skills Manifest";
+			outputPaths = (
+				"$(BUILT_PRODUCTS_DIR)/$(UNLOCALIZED_RESOURCES_FOLDER_PATH)/skills-manifest.json",
+				"$(BUILT_PRODUCTS_DIR)/$(UNLOCALIZED_RESOURCES_FOLDER_PATH)/Skills/ralph/SKILL.md",
+				"$(BUILT_PRODUCTS_DIR)/$(UNLOCALIZED_RESOURCES_FOLDER_PATH)/Skills/grill-me/SKILL.md",
+				"$(BUILT_PRODUCTS_DIR)/$(UNLOCALIZED_RESOURCES_FOLDER_PATH)/Skills/ubiquitous-language/SKILL.md",
+				"$(BUILT_PRODUCTS_DIR)/$(UNLOCALIZED_RESOURCES_FOLDER_PATH)/Skills/to-prd/SKILL.md",
+				"$(BUILT_PRODUCTS_DIR)/$(UNLOCALIZED_RESOURCES_FOLDER_PATH)/Skills/prd-to-tasks/SKILL.md",
+				"$(BUILT_PRODUCTS_DIR)/$(UNLOCALIZED_RESOURCES_FOLDER_PATH)/Skills/qa/SKILL.md",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/bash;
+			shellScript = "\"$SRCROOT/scripts/generate-skills-manifest.sh\"\n";
+		};
+/* End PBXShellScriptBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		906E9EEA2F86C12E009DC834 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		906E9EF92F86C130009DC834 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		906E9F032F86C130009DC834 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		906E9EFF2F86C130009DC834 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 906E9EED2F86C12E009DC834 /* AgentWorkflows */;
+			targetProxy = 906E9EFE2F86C130009DC834 /* PBXContainerItemProxy */;
+		};
+		906E9F092F86C130009DC834 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 906E9EED2F86C12E009DC834 /* AgentWorkflows */;
+			targetProxy = 906E9F082F86C130009DC834 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		906E9F0F2F86C130009DC834 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEAD_CODE_STRIPPING = YES;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MACOSX_DEPLOYMENT_TARGET = 26.2;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = macosx;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+			};
+			name = Debug;
+		};
+		906E9F102F86C130009DC834 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEAD_CODE_STRIPPING = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MACOSX_DEPLOYMENT_TARGET = 26.2;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				SDKROOT = macosx;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_COMPILATION_MODE = wholemodule;
+			};
+			name = Release;
+		};
+		906E9F122F86C130009DC834 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				CURRENT_PROJECT_VERSION = 1;
+				DEAD_CODE_STRIPPING = YES;
+				ENABLE_APP_SANDBOX = NO;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 26.2;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = dev.aw.AgentWorkflows;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				REGISTER_APP_GROUPS = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+		906E9F132F86C130009DC834 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				CURRENT_PROJECT_VERSION = 1;
+				DEAD_CODE_STRIPPING = YES;
+				ENABLE_APP_SANDBOX = NO;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 26.2;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = dev.aw.AgentWorkflows;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				REGISTER_APP_GROUPS = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Release;
+		};
+		906E9F152F86C130009DC834 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEAD_CODE_STRIPPING = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 26.2;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = dev.aw.AgentWorkflowsTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				STRING_CATALOG_GENERATE_SYMBOLS = NO;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/AgentWorkflows.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/AgentWorkflows";
+			};
+			name = Debug;
+		};
+		906E9F162F86C130009DC834 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEAD_CODE_STRIPPING = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 26.2;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = dev.aw.AgentWorkflowsTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				STRING_CATALOG_GENERATE_SYMBOLS = NO;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/AgentWorkflows.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/AgentWorkflows";
+			};
+			name = Release;
+		};
+		906E9F182F86C130009DC834 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEAD_CODE_STRIPPING = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = dev.aw.AgentWorkflowsUITests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				STRING_CATALOG_GENERATE_SYMBOLS = NO;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TEST_TARGET_NAME = AgentWorkflows;
+			};
+			name = Debug;
+		};
+		906E9F192F86C130009DC834 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEAD_CODE_STRIPPING = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = dev.aw.AgentWorkflowsUITests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				STRING_CATALOG_GENERATE_SYMBOLS = NO;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TEST_TARGET_NAME = AgentWorkflows;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		906E9EE92F86C12E009DC834 /* Build configuration list for PBXProject "AgentWorkflows" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				906E9F0F2F86C130009DC834 /* Debug */,
+				906E9F102F86C130009DC834 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		906E9F112F86C130009DC834 /* Build configuration list for PBXNativeTarget "AgentWorkflows" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				906E9F122F86C130009DC834 /* Debug */,
+				906E9F132F86C130009DC834 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		906E9F142F86C130009DC834 /* Build configuration list for PBXNativeTarget "AgentWorkflowsTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				906E9F152F86C130009DC834 /* Debug */,
+				906E9F162F86C130009DC834 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		906E9F172F86C130009DC834 /* Build configuration list for PBXNativeTarget "AgentWorkflowsUITests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				906E9F182F86C130009DC834 /* Debug */,
+				906E9F192F86C130009DC834 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		906E9F1A2F87A000009DC834 /* XCRemoteSwiftPackageReference "SwiftTerm" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/migueldeicaza/SwiftTerm.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 1.2.0;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		906E9F1C2F87A000009DC834 /* SwiftTerm */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 906E9F1A2F87A000009DC834 /* XCRemoteSwiftPackageReference "SwiftTerm" */;
+			productName = SwiftTerm;
+		};
+/* End XCSwiftPackageProductDependency section */
+	};
+	rootObject = 906E9EE62F86C12E009DC834 /* Project object */;
+}
