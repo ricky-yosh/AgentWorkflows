@@ -64,6 +64,7 @@ struct AppSettingsTests {
         #expect(settings.planCLI == .codex)
         #expect(settings.verifyCLI == .codex)
         #expect(settings.buildCLI == .codex)
+        #expect(settings.excavationCLI == .claude)
     }
 
     // MARK: - Load: only per-repo present
@@ -80,6 +81,7 @@ struct AppSettingsTests {
         #expect(settings.verifyCLI == .claude)
         // Overridden field comes from per-repo
         #expect(settings.buildCLI == .codex)
+        #expect(settings.excavationCLI == .claude)
     }
 
     // MARK: - Load: both present (field-by-field merge)
@@ -113,6 +115,7 @@ struct AppSettingsTests {
         #expect(settings.planCLI == .pi)
         #expect(settings.verifyCLI == .pi)
         #expect(settings.buildCLI == .pi)
+        #expect(settings.excavationCLI == .claude)
     }
 
     // MARK: - Load: malformed JSON

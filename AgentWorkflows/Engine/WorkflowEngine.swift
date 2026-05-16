@@ -109,7 +109,7 @@ final class WorkflowEngine {
 
     private let session: Session
     private let workflow: Workflow
-    private let engineResolver: (String?) -> AgentEngine
+    private let engineResolver: (String?, EngineManager.EngineRole) -> AgentEngine
     private var activeEngine: AgentEngine?
     private(set) var activeLoopDriver: HeadlessRalphDriver?
     private let settingsStore: SettingsStore?
@@ -147,7 +147,7 @@ final class WorkflowEngine {
     init(
         session: Session,
         workflow: Workflow,
-        engineResolver: @escaping (String?) -> AgentEngine,
+        engineResolver: @escaping (String?, EngineManager.EngineRole) -> AgentEngine,
         signalFilePath: String,
         settingsStore: SettingsStore? = nil,
         processRunner: (any ProcessRunner)? = nil
@@ -170,7 +170,7 @@ final class WorkflowEngine {
         self.init(
             session: session,
             workflow: workflow,
-            engineResolver: { _ in engine },
+            engineResolver: { _, _ in engine },
             signalFilePath: signalFilePath
         )
     }
@@ -341,38 +341,15 @@ final class WorkflowEngine {
 
             switch step.type {
             case .prompt:
-                // Resolve agent: step-level → SettingsStore phase preset → workflow inheritance chain.
-                let agent = resolvedAgentForPromptStep(step, in: phase)
-                let engine = engineResolver(agent)
-                activeEngine = engine
-                if let promptText = step.prompt {
-                    engine.onStepComplete = { [weak self] in
-                        DispatchQueue.main.async { self?.handleStepCompletion() }
-                    }
-                    engine.onProcessExit = { [weak self] in
-                        DispatchQueue.main.async { self?.handleProcessCrash() }
-                    }
-                    var text = adaptSkillCommands(
-                        in: promptText.trimmingCharacters(in: .whitespacesAndNewlines),
-                        for: agent
-                    )
-                    if let seed = pendingSeed {
-                        text = "\(seed)\n\(text)"
-                        pendingSeed = nil
-                    }
-                    promptDispatcher.dispatch(text, to: engine)
-                    let agentLabel = agent ?? "default"
-                    record(.promptSent, "Injected prompt to \(agentLabel)")
-                } else {
-                    // No prompt to inject — mark step complete immediately
-                    completedStepIDs.append(step.id)
-                    record(.skipped, "\(step.displayName) (no prompt)")
-                    continue
-                }
+                startPromptStep(step, in: phase, role: .main)
+                return
+
+            case .excavate:
+                startExcavateStep(step, in: phase)
                 return
 
             case .restartCLI:
-                let engine = engineResolver(resolvedAgentForPromptStep(step, in: phase))
+                let engine = engineResolver(resolvedAgentForPromptStep(step, in: phase), .main)
                 activeEngine = engine
                 let stepID = step.id
                 let displayName = step.displayName
@@ -536,6 +513,67 @@ final class WorkflowEngine {
 
     // MARK: - Agent Resolution
 
+    private func startPromptStep(
+        _ step: WorkflowStep,
+        in phase: Phase,
+        role: EngineManager.EngineRole
+    ) {
+        // Resolve agent: step-level → SettingsStore phase preset → workflow inheritance chain.
+        let agent = resolvedAgentForPromptStep(step, in: phase)
+        let engine = engineResolver(agent, role)
+        activeEngine = engine
+        guard let promptText = step.prompt else {
+            completedStepIDs.append(step.id)
+            record(.skipped, "\(step.displayName) (no prompt)")
+            return
+        }
+
+        engine.onStepComplete = { [weak self] in
+            DispatchQueue.main.async { self?.handleStepCompletion() }
+        }
+        engine.onProcessExit = { [weak self] in
+            DispatchQueue.main.async { self?.handleProcessCrash() }
+        }
+
+        var text = adaptSkillCommands(
+            in: promptText.trimmingCharacters(in: .whitespacesAndNewlines),
+            for: agent
+        )
+        if let seed = pendingSeed {
+            text = "\(seed)\n\(text)"
+            pendingSeed = nil
+        }
+        promptDispatcher.dispatch(text, to: engine)
+        let agentLabel = agent ?? "default"
+        record(.promptSent, "Injected prompt to \(agentLabel)")
+    }
+
+    private func startExcavateStep(_ step: WorkflowStep, in phase: Phase) {
+        let repositoryRoot = URL(fileURLWithPath: session.workingDirectory)
+        let symbolIndexURL = SessionDirectoryLayout.symbolIndexFileURL(
+            workingDirectory: repositoryRoot,
+            sessionID: session.id
+        )
+        let extractor = SymbolExtractor()
+        let result = extractor.extractSymbols(in: repositoryRoot)
+
+        try? FileManager.default.createDirectory(
+            at: symbolIndexURL.deletingLastPathComponent(),
+            withIntermediateDirectories: true
+        )
+        do {
+            try result.toml.write(to: symbolIndexURL, atomically: true, encoding: .utf8)
+        } catch {
+            record(.skipped, "Symbol extraction warning: unable to write symbol index (\(error))")
+        }
+
+        if let warning = result.warning ?? (result.types.isEmpty ? "No symbols discovered" : nil) {
+            record(.skipped, "Symbol extraction warning: \(warning)")
+        }
+
+        startPromptStep(step, in: phase, role: .excavation)
+    }
+
     /// Resolves the AgentEngine tool identifier for a prompt step.
     ///
     /// Priority: step.agent (explicit) → SettingsStore phase-specific preset
@@ -543,6 +581,9 @@ final class WorkflowEngine {
     private func resolvedAgentForPromptStep(_ step: WorkflowStep, in phase: Phase) -> String? {
         if let a = step.agent, !a.isEmpty { return a }
         if let store = settingsStore {
+            if step.type == .excavate {
+                return ProcessRunnerFactory.toolIdentifier(for: store.settings.excavationCLI)
+            }
             switch phase.name.lowercased() {
             case "plan":
                 return ProcessRunnerFactory.toolIdentifier(for: store.settings.planCLI)

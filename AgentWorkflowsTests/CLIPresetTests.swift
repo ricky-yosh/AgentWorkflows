@@ -66,7 +66,8 @@ struct CLIPresetTests {
             sidebarTitleProvider: .pi,
             planCLI: .pi,
             verifyCLI: .pi,
-            buildCLI: .pi
+            buildCLI: .pi,
+            excavationCLI: .pi
         )
         #expect(settings.allSkillsDirectories.count == 1)
         #expect(settings.allSkillsDirectories.first?.path.hasSuffix(".agents/skills") == true)
@@ -92,6 +93,7 @@ struct CLIPresetTests {
         #expect(settings.planCLI == .claude)
         #expect(settings.verifyCLI == .claude)
         #expect(settings.buildCLI == .claude)
+        #expect(settings.excavationCLI == .claude)
     }
 
     @Test func foundationModelsTitleProviderHasNoSkillsDirectory() {
@@ -159,7 +161,8 @@ struct CLIPresetTests {
             sidebarTitleProvider: .foundationModels,
             planCLI: .openCode,
             verifyCLI: .openCode,
-            buildCLI: .openCode
+            buildCLI: .openCode,
+            excavationCLI: .openCode
         )
         #expect(settings.allSkillsDirectories.count == 1)
         #expect(settings.allSkillsDirectories.first?.path.hasSuffix(".config/opencode/commands") == true)
@@ -178,11 +181,12 @@ struct CLIPresetTests {
     }
 
     @Test func settingsWithUnknownCLIFallsBackToDefault() throws {
-        let json = #"{"sidebarTitleProvider":"unknown_future_provider","planCLI":"unknown_future_cli","verifyCLI":"unknown_future_cli","buildCLI":"unknown_future_cli"}"#
+        let json = #"{"sidebarTitleProvider":"unknown_future_provider","planCLI":"unknown_future_cli","verifyCLI":"unknown_future_cli","buildCLI":"unknown_future_cli","excavationCLI":"unknown_future_cli"}"#
         let settings = try JSONDecoder().decode(Settings.self, from: Data(json.utf8))
         #expect(settings.sidebarTitleProvider == .claude)
         #expect(settings.planCLI == .claude)
         #expect(settings.verifyCLI == .claude)
         #expect(settings.buildCLI == .claude)
+        #expect(settings.excavationCLI == .claude)
     }
 }

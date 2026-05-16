@@ -26,6 +26,30 @@ enum SessionDirectoryLayout {
             .appendingPathComponent("tasks.json")
     }
 
+    /// `{sessionDirectory}/canvas.toml`
+    static func canvasFileURL(workingDirectory: URL, sessionID: UUID) -> URL {
+        sessionDirectory(workingDirectory: workingDirectory, sessionID: sessionID)
+            .appendingPathComponent("canvas.toml")
+    }
+
+    /// `{sessionDirectory}/canvas-layout.toml`
+    static func canvasLayoutFileURL(workingDirectory: URL, sessionID: UUID) -> URL {
+        sessionDirectory(workingDirectory: workingDirectory, sessionID: sessionID)
+            .appendingPathComponent("canvas-layout.toml")
+    }
+
+    /// `{sessionDirectory}/symbol-index.toml`
+    static func symbolIndexFileURL(workingDirectory: URL, sessionID: UUID) -> URL {
+        sessionDirectory(workingDirectory: workingDirectory, sessionID: sessionID)
+            .appendingPathComponent("symbol-index.toml")
+    }
+
+    /// `{sessionDirectory}/ARCHITECTURE.toml`
+    static func architectureFileURL(workingDirectory: URL, sessionID: UUID) -> URL {
+        sessionDirectory(workingDirectory: workingDirectory, sessionID: sessionID)
+            .appendingPathComponent("ARCHITECTURE.toml")
+    }
+
     /// `{sessionDirectory}/events.jsonl`
     static func eventsLogURL(workingDirectory: URL, sessionID: UUID) -> URL {
         sessionDirectory(workingDirectory: workingDirectory, sessionID: sessionID)

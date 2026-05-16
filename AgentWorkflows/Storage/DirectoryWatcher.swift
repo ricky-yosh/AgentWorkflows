@@ -3,6 +3,7 @@ import Observation
 
 @Observable
 final class DirectoryWatcher {
+    var onChange: (() -> Void)?
     private(set) var lastChangeDate: Date = .now
     private var source: DispatchSourceFileSystemObject?
     private var fileDescriptor: Int32 = -1
@@ -22,6 +23,7 @@ final class DirectoryWatcher {
         source.setEventHandler { [weak self] in
             DispatchQueue.main.async {
                 self?.lastChangeDate = .now
+                self?.onChange?()
             }
         }
         source.setCancelHandler {

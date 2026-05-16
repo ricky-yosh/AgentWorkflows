@@ -16,6 +16,7 @@ extension WorkflowStep {
         }
         switch type {
         case .prompt:       return "Prompt"
+        case .excavate:     return "Excavate"
         case .restartCLI:   return "Restart CLI"
         case .pause:        return "Pause"
         case .break_:       return "Break"

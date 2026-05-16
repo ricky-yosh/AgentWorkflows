@@ -114,10 +114,16 @@ private func inlineText(_ markdown: String) -> Text {
 
 struct MarkdownView: View {
     let content: String
+    private let blocks: [MarkdownBlock]
+
+    init(content: String) {
+        self.content = content
+        self.blocks = parseMarkdown(content)
+    }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 24) {
-            ForEach(Array(parseMarkdown(content).enumerated()), id: \.offset) { _, block in
+        LazyVStack(alignment: .leading, spacing: 24) {
+            ForEach(Array(blocks.enumerated()), id: \.offset) { _, block in
                 blockView(block)
             }
         }
@@ -139,7 +145,7 @@ struct MarkdownView: View {
                 .lineSpacing(5)
 
         case .codeBlock(_, let code):
-            Text(code)
+            LineChunkedTextView(code)
                 .font(.system(.callout, design: .monospaced))
                 .padding(10)
                 .frame(maxWidth: .infinity, alignment: .leading)

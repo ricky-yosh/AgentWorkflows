@@ -412,7 +412,7 @@ struct PlainTextContentView: View {
     var body: some View {
         if wordWrap {
             ScrollView(.vertical) {
-                Text(content)
+                LineChunkedTextView(content)
                     .font(.system(.body, design: .monospaced))
                     .textSelection(.enabled)
                     .padding()
@@ -420,10 +420,9 @@ struct PlainTextContentView: View {
             }
         } else {
             ScrollView([.horizontal, .vertical]) {
-                Text(content)
+                LineChunkedTextView(content, fixedHorizontalSize: true)
                     .font(.system(.body, design: .monospaced))
                     .textSelection(.enabled)
-                    .fixedSize(horizontal: true, vertical: false)
                     .padding()
             }
         }

@@ -4,10 +4,20 @@ import Observation
 
 @Observable
 final class EngineManager {
+    enum EngineRole: Hashable {
+        case main
+        case excavation
+    }
+
+    private struct EngineKey: Hashable {
+        let sessionID: UUID
+        let role: EngineRole
+    }
+
     /// Terminal engines keyed by session ID, then by tool name (e.g. "cli/zsh").
-    private var engines: [UUID: [String: TerminalEngine]] = [:]
+    private var engines: [EngineKey: [String: TerminalEngine]] = [:]
     /// Insertion-ordered tool names per session, for stable tab ordering.
-    private var toolOrder: [UUID: [String]] = [:]
+    private var toolOrder: [EngineKey: [String]] = [:]
     private var workflowEngines: [UUID: WorkflowEngine] = [:]
     private var runStatuses: [UUID: SessionRunStatus] = [:]
     @ObservationIgnored private var terminationObserver: NSObjectProtocol?
@@ -113,10 +123,10 @@ final class EngineManager {
         let we = WorkflowEngine(
             session: session,
             workflow: workflow,
-            engineResolver: { [weak self] agent in
+            engineResolver: { [weak self] agent, role in
                 guard let self else { return TerminalEngine() }
                 let tool = (agent?.isEmpty == false ? agent! : self.defaultAgent)
-                let engine = self.engine(for: session.id, tool: tool)
+                let engine = self.engine(for: session.id, role: role, tool: tool)
                 if engine.engineState != .running {
                     if case .terminated = engine.engineState {
                         engine.terminate()  // reset to idle so start() can re-launch
@@ -139,9 +149,12 @@ final class EngineManager {
 
     func configureResolver(for session: Session) {
         let resolver = TemplateResolver(sessionID: session.id)
-        if let sessionEngines = engines[session.id] {
-            for (_, engine) in sessionEngines {
-                engine.templateResolver = resolver
+        for role in [EngineRole.main, .excavation] {
+            let key = EngineKey(sessionID: session.id, role: role)
+            if let sessionEngines = engines[key] {
+                for (_, engine) in sessionEngines {
+                    engine.templateResolver = resolver
+                }
             }
         }
     }
@@ -151,7 +164,9 @@ final class EngineManager {
     func terminateAll() {
         for sessionID in Array(workflowEngines.keys) {
             workflowEngines[sessionID]?.forceStop()
-            engines[sessionID]?.values.forEach { $0.terminate() }
+            engines.keys.filter { $0.sessionID == sessionID }.forEach { key in
+                engines[key]?.values.forEach { $0.terminate() }
+            }
         }
     }
 
@@ -164,9 +179,12 @@ final class EngineManager {
     func removeEngine(for sessionID: UUID) {
         workflowEngines[sessionID]?.stop()
         workflowEngines[sessionID] = nil
-        engines[sessionID]?.values.forEach { $0.terminate() }
-        engines[sessionID] = nil
-        toolOrder[sessionID] = nil
+        let keys = engines.keys.filter { $0.sessionID == sessionID }
+        for key in keys {
+            engines[key]?.values.forEach { $0.terminate() }
+            engines[key] = nil
+            toolOrder[key] = nil
+        }
     }
 
     private static func signalFilePath(for session: Session) -> String {

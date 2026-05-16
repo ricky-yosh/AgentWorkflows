@@ -183,6 +183,76 @@ struct DiffViewerPreferenceView: View {
     }
 }
 
+// MARK: - Excavation CLI Preference
+
+struct ExcavationCLIPreference: View {
+
+    @Binding var excavationCLI: CLIPreset
+
+    static let sectionTitle = "Excavation CLI"
+    static let detailText = "Runs ExcavationAgent in a dedicated terminal after symbol extraction."
+
+    var body: some View {
+        Section(Self.sectionTitle) {
+            cliPresetRow("Target", binding: $excavationCLI)
+            Text(Self.detailText)
+                .font(.callout)
+                .foregroundStyle(.secondary)
+        }
+    }
+
+    @ViewBuilder
+    private func cliPresetRow(_ label: String, binding: Binding<CLIPreset>) -> some View {
+        LabeledContent(label) {
+            Menu {
+                Button("claude") { binding.wrappedValue = .claude }
+                Divider()
+                Button("codex") { binding.wrappedValue = .codex }
+                Button("pi") { binding.wrappedValue = .pi }
+                Button("openCode") { binding.wrappedValue = .openCode }
+            } label: {
+                Text(binding.wrappedValue.rawValue.capitalized)
+            }
+            .fixedSize()
+        }
+    }
+}
+
+// MARK: - Excavation CLI Preference
+
+struct ExcavationCLIPreference: View {
+
+    @Binding var excavationCLI: CLIPreset
+
+    static let sectionTitle = "Excavation CLI"
+    static let detailText = "Runs ExcavationAgent in a dedicated terminal after symbol extraction."
+
+    var body: some View {
+        Section(Self.sectionTitle) {
+            cliPresetRow("Target", binding: $excavationCLI)
+            Text(Self.detailText)
+                .font(.callout)
+                .foregroundStyle(.secondary)
+        }
+    }
+
+    @ViewBuilder
+    private func cliPresetRow(_ label: String, binding: Binding<CLIPreset>) -> some View {
+        LabeledContent(label) {
+            Menu {
+                Button("claude") { binding.wrappedValue = .claude }
+                Divider()
+                Button("codex") { binding.wrappedValue = .codex }
+                Button("pi") { binding.wrappedValue = .pi }
+                Button("openCode") { binding.wrappedValue = .openCode }
+            } label: {
+                Text(binding.wrappedValue.rawValue.capitalized)
+            }
+            .fixedSize()
+        }
+    }
+}
+
 enum DiffViewerOption: String, CaseIterable, Identifiable {
     case sourcetree
     case tower

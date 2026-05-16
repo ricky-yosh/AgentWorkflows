@@ -150,7 +150,13 @@ struct SettingsStoreTests {
     @Test func perRepoNilFieldInheritsFromGlobal() {
         let disk = InMemoryDisk()
         let store = makeStore(disk: disk)
-        let global = Settings(sidebarTitleCLI: .codex, planCLI: .codex, verifyCLI: .claude, buildCLI: .claude)
+        let global = Settings(
+            sidebarTitleCLI: .codex,
+            planCLI: .codex,
+            verifyCLI: .claude,
+            buildCLI: .claude,
+            excavationCLI: .pi
+        )
         store.updateGlobal(global)
         // Override only buildCLI; sidebarTitleCLI/planCLI/verifyCLI inherit from global
         let perRepo = PerRepoSettings(buildCLI: .claude)
@@ -159,5 +165,6 @@ struct SettingsStoreTests {
         #expect(store.settings.planCLI == .codex)           // inherited
         #expect(store.settings.verifyCLI == .claude)         // inherited
         #expect(store.settings.buildCLI == .claude)          // per-repo override
+        #expect(store.settings.excavationCLI == .pi)         // inherited
     }
 }

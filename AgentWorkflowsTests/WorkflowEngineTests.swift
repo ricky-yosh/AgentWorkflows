@@ -164,15 +164,92 @@ struct WorkflowEngineTests {
         let planSteps = Workflow.ralph.phases[0].steps
 
         #expect(planSteps.map(\.id) == [
+            "plan-excavate",
             "plan-grill-with-docs",
             "plan-to-prd",
             "plan-to-tasks",
         ])
+        #expect(planSteps.map(\.type) == [
+            .excavate,
+            .prompt,
+            .prompt,
+            .prompt,
+        ])
         #expect(planSteps.map(\.prompt) == [
+            "/excavation-agent {progress-path}",
             "/grill-with-docs",
             "/to-prd {progress-path}",
             "/to-tasks {progress-path}",
         ])
+    }
+
+    @Test func excavateStepWritesSymbolIndexBeforeDispatchingToExcavationRole() throws {
+        let sourceFile = testDir.appendingPathComponent("Feature.swift")
+        try """
+        public final class ExcavationTarget {
+            public func surface() {}
+            private func hide() {}
+        }
+        """.write(to: sourceFile, atomically: true, encoding: .utf8)
+
+        let globalSettingsURL = testDir.appendingPathComponent("settings.json")
+        let settings = Settings.default
+        let excavationSettings = Settings(
+            sidebarTitleProvider: settings.sidebarTitleProvider,
+            planCLI: settings.planCLI,
+            verifyCLI: settings.verifyCLI,
+            buildCLI: settings.buildCLI,
+            excavationCLI: .codex
+        )
+        try JSONEncoder().encode(excavationSettings).write(to: globalSettingsURL)
+        let settingsStore = SettingsStore(
+            appSettings: AppSettings(globalURL: globalSettingsURL, perRepoURL: nil)
+        )
+
+        let excavateStep = WorkflowStep(
+            id: "plan-excavate",
+            type: .excavate,
+            label: "Excavate",
+            agent: nil,
+            prompt: "/excavation-agent {progress-path}",
+            promptFile: nil
+        )
+        let workflow = Workflow(name: "W", phases: [makePhase(steps: [excavateStep])])
+        let session = makeSession()
+        let mainEngine = MockAgentEngine()
+        let excavationEngine = MockAgentEngine()
+        mainEngine.engineState = .running
+        excavationEngine.engineState = .running
+        var resolvedRoles: [EngineManager.EngineRole] = []
+        var resolvedAgents: [String?] = []
+
+        let engine = WorkflowEngine(
+            session: session,
+            workflow: workflow,
+            engineResolver: { agent, role in
+                resolvedRoles.append(role)
+                resolvedAgents.append(agent)
+                return role == .excavation ? excavationEngine : mainEngine
+            },
+            signalFilePath: signalFilePath(for: session),
+            settingsStore: settingsStore
+        )
+        engine.start()
+
+        let symbolIndexURL = SessionDirectoryLayout.symbolIndexFileURL(
+            workingDirectory: URL(fileURLWithPath: session.workingDirectory),
+            sessionID: session.id
+        )
+        let symbolIndex = try String(contentsOf: symbolIndexURL)
+
+        #expect(resolvedRoles == [.excavation])
+        #expect(resolvedAgents == ["cli/codex"])
+        #expect(mainEngine.injectedPrompts.isEmpty)
+        #expect(excavationEngine.injectedPrompts.count == 1)
+        #expect(excavationEngine.injectedPrompts[0].hasPrefix("$excavation-agent"))
+        #expect(symbolIndex.contains("[[types]]"))
+        #expect(symbolIndex.contains(#"name = "ExcavationTarget""#))
+        cleanup()
     }
 
     @Test func codexPromptStepRewritesKnownSkillSlashCommandToSkillMention() throws {
@@ -1657,7 +1734,7 @@ struct WorkflowEngineTests {
         let engine = WorkflowEngine(
             session: session,
             workflow: workflow,
-            engineResolver: { _ in mock },
+            engineResolver: { _, _ in mock },
             signalFilePath: signalFilePath(for: session),
             processRunner: fakeRunner
         )
@@ -1686,7 +1763,7 @@ struct WorkflowEngineTests {
         let engine = WorkflowEngine(
             session: session,
             workflow: workflow,
-            engineResolver: { _ in mock },
+            engineResolver: { _, _ in mock },
             signalFilePath: signalFilePath(for: session),
             processRunner: fakeRunner
         )
@@ -1716,7 +1793,7 @@ struct WorkflowEngineTests {
         let engine = WorkflowEngine(
             session: session,
             workflow: workflow,
-            engineResolver: { _ in mock },
+            engineResolver: { _, _ in mock },
             signalFilePath: signalFilePath(for: session),
             processRunner: fakeRunner
         )
@@ -1744,7 +1821,7 @@ struct WorkflowEngineTests {
         let engine = WorkflowEngine(
             session: session,
             workflow: workflow,
-            engineResolver: { _ in mock },
+            engineResolver: { _, _ in mock },
             signalFilePath: signalFilePath(for: session),
             processRunner: fakeRunner
         )
@@ -1780,7 +1857,7 @@ struct WorkflowEngineTests {
         let engine = WorkflowEngine(
             session: session,
             workflow: workflow,
-            engineResolver: { _ in mock },
+            engineResolver: { _, _ in mock },
             signalFilePath: signalFilePath(for: session),
             processRunner: fakeRunner
         )
@@ -1810,7 +1887,7 @@ struct WorkflowEngineTests {
         let engine = WorkflowEngine(
             session: session,
             workflow: workflow,
-            engineResolver: { _ in mock },
+            engineResolver: { _, _ in mock },
             signalFilePath: signalFilePath(for: session)
         )
         engine.start()
@@ -1832,7 +1909,7 @@ struct WorkflowEngineTests {
         let engine = WorkflowEngine(
             session: session,
             workflow: workflow,
-            engineResolver: { _ in mock },
+            engineResolver: { _, _ in mock },
             signalFilePath: signalFilePath(for: session)
         )
         engine.start()
@@ -1859,7 +1936,7 @@ struct WorkflowEngineTests {
         let engine = WorkflowEngine(
             session: session,
             workflow: workflow,
-            engineResolver: { _ in mock },
+            engineResolver: { _, _ in mock },
             signalFilePath: signalFilePath(for: session)
         )
         engine.start()

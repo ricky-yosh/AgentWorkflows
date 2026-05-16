@@ -134,6 +134,17 @@ struct PreferencesView: View {
         )
     }
 
+    private var excavationCLIBinding: Binding<CLIPreset> {
+        Binding(
+            get: { settingsStore.globalSettings.excavationCLI },
+            set: { newValue in
+                var updated = settingsStore.globalSettings
+                updated.excavationCLI = newValue
+                settingsStore.updateGlobal(updated)
+            }
+        )
+    }
+
     // MARK: - This Repo Tab
 
     private var thisRepoTab: some View {
@@ -300,6 +311,8 @@ struct PreferencesView: View {
             Section("Diff Viewer") {
                 DiffViewerPreferenceView(diffViewerCommand: $diffViewerCommand)
             }
+
+            ExcavationCLIPreference(excavationCLI: excavationCLIBinding)
 
             Section("Prerequisites") {
                 let home = FileManager.default.homeDirectoryForCurrentUser

@@ -9,21 +9,19 @@ struct SessionDetailView<Header: View>: View {
     @Environment(SessionStore.self) private var sessionStore
     @Environment(EngineManager.self) private var engineManager
     @Environment(SettingsStore.self) private var settingsStore
+    @Environment(SessionTabState.self) private var sessionTabState
 
     @State private var inspectorPresented = true
     @State private var phaseExpansion: [AnyHashable: Bool] = [:]
     @State private var workflow: Workflow?
 
-    /// Seed intent collected from the pre-Play modal. Held in memory for
+    /// Braindump collected from the pre-Play modal. Held in memory for
     /// the session's lifetime — re-Play after stop/complete reuses the
-    /// same seed without re-prompting.
-    @State private var seedIdea: String?
+    /// same braindump without re-prompting.
+    @State private var braindump: String?
     @State private var seedPromptPresented = false
-    @State private var selectedTab: SessionTab = .terminal
-
-    private enum SessionTab: Hashable {
-        case terminal, iterations, files, diff, log
-    }
+    @State private var canvasFileStore: CanvasFileStore?
+    @State private var canvasLayoutStore: CanvasLayoutStore?
 
     private var workflowEngine: WorkflowEngine? {
         engineManager.workflowEngine(for: session.id)
@@ -76,6 +74,18 @@ struct SessionDetailView<Header: View>: View {
             .task(id: session.id) {
                 loadWorkflow()
                 primeTaskCounts()
+                canvasFileStore = CanvasFileStore(
+                    fileURL: SessionDirectoryLayout.canvasFileURL(
+                        workingDirectory: URL(fileURLWithPath: session.workingDirectory),
+                        sessionID: session.id
+                    )
+                )
+                canvasLayoutStore = CanvasLayoutStore(
+                    fileURL: SessionDirectoryLayout.canvasLayoutFileURL(
+                        workingDirectory: URL(fileURLWithPath: session.workingDirectory),
+                        sessionID: session.id
+                    )
+                )
             }
             .onChange(of: session.workflowName) { _, _ in
                 loadWorkflow()
@@ -92,7 +102,7 @@ struct SessionDetailView<Header: View>: View {
             .sheet(isPresented: $seedPromptPresented, onDismiss: focusTerminal) {
                 SessionSeedSheet(
                     onConfirm: { text in
-                        seedIdea = text
+                        braindump = text
                         seedPromptPresented = false
                         let sessionID = session.id
                         let store = sessionStore
@@ -114,7 +124,12 @@ struct SessionDetailView<Header: View>: View {
 
     @ViewBuilder
     private var tabbedBody: some View {
-        TabView(selection: $selectedTab) {
+        TabView(selection: Binding(
+            get: { sessionTabState.selectedTab(for: session.id) },
+            set: { sessionTabState.setSelectedTab($0, for: session.id) }
+        )) {
+            workbenchTab
+
             TerminalHost(session: session)
                 .tabItem { Label("Terminal", systemImage: "terminal") }
                 .tag(SessionTab.terminal)
@@ -126,7 +141,7 @@ struct SessionDetailView<Header: View>: View {
                     sessionID: session.id
                 )
             )
-            .tabItem { Label("Iterations", systemImage: "repeat") }
+            .tabItem { Label("Tasks", systemImage: "repeat") }
             .tag(SessionTab.iterations)
 
             DocsView(session: session)
@@ -142,32 +157,56 @@ struct SessionDetailView<Header: View>: View {
                 .tag(SessionTab.log)
         }
         .background(TabTooltipSetter(tooltips: [
-            "Terminal (⌘1)",
-            "Iterations (⌘2)",
-            "Files (⌘3)",
-            "Diff (⌘4)",
-            "Log (⌘5)"
+            "Workbench (⌘1)",
+            "Terminal (⌘2)",
+            "Tasks (⌘3)",
+            "Files (⌘4)",
+            "Diff (⌘5)",
+            "Log (⌘6)"
         ]))
         .overlay(tabShortcuts)
     }
 
     @ViewBuilder
+    private var workbenchTab: some View {
+        Group {
+            if let canvasFileStore, let canvasLayoutStore {
+                WorkbenchView(
+                    session: session,
+                    canvasFileStore: canvasFileStore,
+                    canvasLayoutStore: canvasLayoutStore,
+                    isExcavationRunning: isExcavationRunning,
+                    onRunExcavate: runExcavate
+                )
+            } else {
+                ProgressView("Loading Workbench...")
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+            }
+        }
+        .tabItem { Label("Workbench", systemImage: "square.grid.2x2") }
+        .tag(SessionTab.workbench)
+    }
+
+    @ViewBuilder
     private var tabShortcuts: some View {
         ZStack {
-            Button("") { selectedTab = .terminal }
+            Button("") { sessionTabState.setSelectedTab(.workbench, for: session.id) }
                 .keyboardShortcut("1", modifiers: .command)
                 .hidden()
-            Button("") { selectedTab = .iterations }
+            Button("") { sessionTabState.setSelectedTab(.terminal, for: session.id) }
                 .keyboardShortcut("2", modifiers: .command)
                 .hidden()
-            Button("") { selectedTab = .files }
+            Button("") { sessionTabState.setSelectedTab(.iterations, for: session.id) }
                 .keyboardShortcut("3", modifiers: .command)
                 .hidden()
-            Button("") { selectedTab = .diff }
+            Button("") { sessionTabState.setSelectedTab(.files, for: session.id) }
                 .keyboardShortcut("4", modifiers: .command)
                 .hidden()
-            Button("") { selectedTab = .log }
+            Button("") { sessionTabState.setSelectedTab(.diff, for: session.id) }
                 .keyboardShortcut("5", modifiers: .command)
+                .hidden()
+            Button("") { sessionTabState.setSelectedTab(.log, for: session.id) }
+                .keyboardShortcut("6", modifiers: .command)
                 .hidden()
         }
         .frame(width: 0, height: 0)
@@ -221,7 +260,10 @@ struct SessionDetailView<Header: View>: View {
                 }
                 .help("Continue Session (⌘↩)")
             case .completed:
-                EmptyView()
+                Button(action: play) {
+                    Image(systemName: "play.fill")
+                }
+                .help("Restart Session (⌘↩)")
             case .stalled:
                 Button(action: continueExecution) {
                     Image(systemName: "play.fill")
@@ -274,11 +316,10 @@ struct SessionDetailView<Header: View>: View {
 
     private func play() {
         guard workflow != nil else { return }
-        // Show seed sheet only when plan-grill-with-docs has not yet run. Once it
-        // completes its ID lands in session.completedStepIDs (persisted to
-        // disk), so re-Play after Stop never re-prompts. Cancel leaves the
-        // session in .idle by not calling startRalphLoop.
-        if !session.completedStepIDs.contains("plan-grill-with-docs") {
+        let hasProgress = !session.completedStepIDs.isEmpty
+            || session.currentPhaseIndex > 0
+            || session.currentStepIndex > 0
+        if !hasProgress {
             seedPromptPresented = true
             return
         }
@@ -295,7 +336,7 @@ struct SessionDetailView<Header: View>: View {
         case .paused, .stalled:
             continueExecution()
         case .completed:
-            break
+            play()
         }
     }
 
@@ -311,7 +352,7 @@ struct SessionDetailView<Header: View>: View {
             session: session,
             workflow: workflow,
             settingsStore: settingsStore,
-            seedIntent: seedIdea
+            seedIntent: braindump
         )
         workflowEngine.start()
     }
@@ -335,6 +376,31 @@ struct SessionDetailView<Header: View>: View {
         } else {
             let workflowEngine = engineManager.createWorkflowEngine(session: session, workflow: workflow, settingsStore: settingsStore)
             workflowEngine.start()
+        }
+    }
+
+    private func runExcavate() {
+        guard let workflow else { return }
+        ensureTerminalRunning(phaseIndex: 0)
+        do {
+            if session.state != .running {
+                try sessionStore.transitionSession(session.id, to: .running)
+            }
+        } catch {
+            return
+        }
+        if let workflowEngine {
+            workflowEngine.runFromStep(phaseIndex: 0, stepIndex: 0)
+        } else {
+            var adjustedSession = session
+            adjustedSession.currentPhaseIndex = 0
+            adjustedSession.currentStepIndex = 0
+            let workflowEngine = engineManager.createWorkflowEngine(
+                session: adjustedSession,
+                workflow: workflow,
+                settingsStore: settingsStore
+            )
+            workflowEngine.runFromStep(phaseIndex: 0, stepIndex: 0)
         }
     }
 
@@ -379,6 +445,13 @@ struct SessionDetailView<Header: View>: View {
         engineManager.configureResolver(for: session)
     }
 
+    private var isExcavationRunning: Bool {
+        let excavationTool = ProcessRunnerFactory.toolIdentifier(for: settingsStore.settings.excavationCLI)
+        return WorkbenchExcavateRunState.isDisabled(
+            excavationEngineState: engineManager.engine(for: session.id, role: .excavation, tool: excavationTool).engineState
+        )
+    }
+
     private func terminalToolIdentifier(forPhaseIndex phaseIndex: Int?) -> String {
         guard let phaseIndex, let workflow, phaseIndex < workflow.phases.count else {
             return engineManager.defaultAgent
@@ -417,6 +490,12 @@ struct SessionDetailView<Header: View>: View {
             stepIndex: workflowEngine.currentStepIndex,
             completedStepIDs: workflowEngine.completedStepIDs
         )
+    }
+}
+
+enum WorkbenchExcavateRunState {
+    static func isDisabled(excavationEngineState: EngineState) -> Bool {
+        excavationEngineState == .running
     }
 }
 

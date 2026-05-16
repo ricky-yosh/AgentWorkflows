@@ -48,6 +48,38 @@ struct SessionDirectoryLayoutTests {
         #expect(url.path == "/repos/my-project/.aw-cache/12345678-1234-1234-1234-123456789012/tasks.json")
     }
 
+    @Test func canvasFileURLIsInsideSessionDirectory() {
+        let url = SessionDirectoryLayout.canvasFileURL(
+            workingDirectory: workingDirectory,
+            sessionID: sessionID
+        )
+        #expect(url.path == "/repos/my-project/.aw-cache/12345678-1234-1234-1234-123456789012/canvas.toml")
+    }
+
+    @Test func canvasLayoutFileURLIsInsideSessionDirectory() {
+        let url = SessionDirectoryLayout.canvasLayoutFileURL(
+            workingDirectory: workingDirectory,
+            sessionID: sessionID
+        )
+        #expect(url.path == "/repos/my-project/.aw-cache/12345678-1234-1234-1234-123456789012/canvas-layout.toml")
+    }
+
+    @Test func symbolIndexFileURLIsInsideSessionDirectory() {
+        let url = SessionDirectoryLayout.symbolIndexFileURL(
+            workingDirectory: workingDirectory,
+            sessionID: sessionID
+        )
+        #expect(url.path == "/repos/my-project/.aw-cache/12345678-1234-1234-1234-123456789012/symbol-index.toml")
+    }
+
+    @Test func architectureFileURLIsInsideSessionDirectory() {
+        let url = SessionDirectoryLayout.architectureFileURL(
+            workingDirectory: workingDirectory,
+            sessionID: sessionID
+        )
+        #expect(url.path == "/repos/my-project/.aw-cache/12345678-1234-1234-1234-123456789012/ARCHITECTURE.toml")
+    }
+
     @Test func eventsLogURLIsInsideSessionDirectory() {
         let url = SessionDirectoryLayout.eventsLogURL(
             workingDirectory: workingDirectory,
