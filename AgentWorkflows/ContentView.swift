@@ -365,7 +365,9 @@ struct ContentView: View {
                 : (idx - 1 + sessions.count) % sessions.count
             storedItem = .session(sessions[nextIdx].id)
         } else {
-            storedItem = .session((forward ? sessions.first : sessions.last)!.id)
+            if let session = forward ? sessions.first : sessions.last {
+                storedItem = .session(session.id)
+            }
         }
     }
 
