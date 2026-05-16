@@ -48,4 +48,26 @@ struct SkillClassifierTests {
         let result = SkillClassifier.classify(bytesOnDisk: data, currentHash: currentHash, priorHashes: [])
         #expect(result == .modified)
     }
+
+    @Test func openCodeTargetUsesFlatSkillFilePath() {
+        let root = URL(fileURLWithPath: "/tmp/opencode-skills", isDirectory: true)
+        let path = SkillClassifier.installedSkillFileURL(
+            skillsDirectory: root,
+            skillName: "ralph",
+            target: .openCode
+        )
+
+        #expect(path.path == "/tmp/opencode-skills/ralph.md")
+    }
+
+    @Test func nonOpenCodeTargetsUseDirectorySkillLayout() {
+        let root = URL(fileURLWithPath: "/tmp/skills", isDirectory: true)
+        let path = SkillClassifier.installedSkillFileURL(
+            skillsDirectory: root,
+            skillName: "ralph",
+            target: .claude
+        )
+
+        #expect(path.path == "/tmp/skills/ralph/SKILL.md")
+    }
 }

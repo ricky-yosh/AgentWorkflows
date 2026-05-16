@@ -48,6 +48,11 @@ final class SessionRunStatus {
     /// Updated in place as new `toolUse` events arrive; nil between iterations.
     var liveToolCall: (name: String, inputSummary: String)?
 
+    /// Pi-reported provider/model label (for example, `mlx / Qwen3-Coder`).
+    /// Set after the first `.modelIdentified` event in a run and displayed
+    /// in the session sidebar status line.
+    var sidebarModelLabel: String?
+
     init(maxIterations: Int = 25) {
         self.maxIterations = maxIterations
     }
@@ -60,6 +65,7 @@ final class SessionRunStatus {
         driverTerminalReason = nil
         iterationRecords = []
         liveToolCall = nil
+        sidebarModelLabel = nil
     }
 
     func beginIteration(number: Int, taskID: Int?, taskDescription: String?) {
@@ -83,6 +89,8 @@ final class SessionRunStatus {
             liveToolCall = (name: name, inputSummary: inputSummary)
         case .sessionStarted(let sessionId):
             iterationRecords[last].sessionId = sessionId
+        case .modelIdentified(let provider, let model):
+            sidebarModelLabel = "\(provider) / \(model)"
         default:
             break
         }

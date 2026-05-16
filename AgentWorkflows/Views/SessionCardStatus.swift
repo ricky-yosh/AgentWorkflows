@@ -15,7 +15,14 @@ struct SessionCardStatus: View {
     var body: some View {
         HStack(spacing: 4) {
             StatusBadgeView(sessionState: session.state)
+            if let modelLabel = status.sidebarModelLabel {
+                Text(modelLabel)
+                    .lineLimit(1)
+            }
             if let name = phaseName {
+                if status.sidebarModelLabel != nil {
+                    Text("·").foregroundStyle(.tertiary)
+                }
                 Text(name)
                 if name == "Build" {
                     Text("·").foregroundStyle(.tertiary)

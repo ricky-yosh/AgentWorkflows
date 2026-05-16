@@ -27,6 +27,56 @@ Inspired by the [Ralph loop](https://github.com/mattpocock/skills) workflow.
 | **Diff** | Per-iteration git diff to see exactly what each loop iteration changed |
 | **Log** | Execution log for debugging |
 
+## Verify your AI tools
+
+Run these commands from any terminal to confirm each supported SDK/CLI is installed, authenticated, and returning output before using it in the app.
+
+**Claude Code**
+```bash
+claude -p --permission-mode acceptEdits --model sonnet --output-format stream-json --verbose "Say hello from Claude Code in one short sentence."
+```
+
+Ralph-style command used by the build loop:
+```bash
+PROGRESS_DIR="$(mktemp -d)"
+claude -p --permission-mode acceptEdits --model sonnet --output-format stream-json --verbose --effort low "/ralph $PROGRESS_DIR"
+```
+
+**Codex**
+```bash
+codex exec --json "Say hello from Codex in one short sentence."
+```
+
+Ralph-style command used by the build loop:
+```bash
+PROGRESS_DIR="$(mktemp -d)"
+codex exec --dangerously-bypass-approvals-and-sandbox -c model_reasoning_effort=low --json "\$ralph $PROGRESS_DIR"
+```
+
+**Pi**
+```bash
+pi -p --mode json "Say hello from Pi in one short sentence."
+```
+
+Ralph-style command used by the build loop:
+```bash
+PROGRESS_DIR="$(mktemp -d)"
+pi -p --mode json "/skill:ralph $PROGRESS_DIR"
+```
+
+**OpenCode**
+```bash
+opencode run --format json "Say hello from OpenCode in one short sentence."
+```
+
+Ralph-style command used by the build loop:
+```bash
+PROGRESS_DIR="$(mktemp -d)"
+opencode run --format json --dangerously-skip-permissions "/ralph $PROGRESS_DIR"
+```
+
+For the simple hello commands, any short assistant response confirms the SDK/CLI is working. The Ralph-style commands require the corresponding skill to be installed and a valid progress directory containing the workflow artifacts, so they are mainly useful when debugging the app's build-loop subprocess behavior.
+
 ## Required Skills
 
 The following [Agent Skills](https://agentskills.io) must be installed:

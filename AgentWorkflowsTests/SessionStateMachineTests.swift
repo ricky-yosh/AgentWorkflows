@@ -528,26 +528,6 @@ struct SessionStateIntegrationTests {
         signalDir.appendingPathComponent("step-complete-\(session.id.uuidString)").path
     }
 
-    private func createSignalFile(for session: Session) throws {
-        try "".write(toFile: signalFilePath(for: session), atomically: true, encoding: .utf8)
-    }
-
-    private func waitUntil(
-        timeout: Duration = .seconds(2),
-        condition: @MainActor () -> Bool
-    ) async throws {
-        let deadline = ContinuousClock.now + timeout
-        while ContinuousClock.now < deadline {
-            if condition() { return }
-            try await Task.sleep(for: .milliseconds(50))
-        }
-        Issue.record("Timed out waiting for condition")
-    }
-
-    private func promptBody(of wrapped: String) -> String {
-        guard let range = wrapped.range(of: "\n\n---") else { return wrapped }
-        return String(wrapped[wrapped.startIndex..<range.lowerBound])
-    }
 
     // MARK: - Play (Start)
 
@@ -605,7 +585,7 @@ struct SessionStateIntegrationTests {
         engine.start()
 
         // Should only inject the third step
-        #expect(mock.injectedPrompts.map(promptBody) == ["Third"])
+        #expect(mock.injectedPrompts == ["Third"])
         cleanup()
     }
 
@@ -641,7 +621,7 @@ struct SessionStateIntegrationTests {
     // MARK: - Pause (from WorkflowEngine)
 
     @Test("pause block in workflow transitions session to paused")
-    func pauseBlockTransitionsSession() async throws {
+    func pauseBlockTransitionsSession() throws {
         var session = makeSession(state: .running)
         let workflow = Workflow(name: "W", phases: [
             makePhase(steps: [
@@ -662,8 +642,7 @@ struct SessionStateIntegrationTests {
         engine.start()
 
         // Complete step 1 → engine hits pause
-        try createSignalFile(for: session)
-        try await waitUntil { engine.executionState == .paused }
+        engine.handleStepCompletion()
 
         // Session should transition to paused
         try session.transition(to: .paused)
@@ -675,7 +654,7 @@ struct SessionStateIntegrationTests {
     // MARK: - Continue (Resume from Pause)
 
     @Test("continue transitions session from paused to running and resumes engine")
-    func continueResumesExecution() async throws {
+    func continueResumesExecution() throws {
         var session = makeSession(state: .running)
         let workflow = Workflow(name: "W", phases: [
             makePhase(steps: [
@@ -695,8 +674,8 @@ struct SessionStateIntegrationTests {
         )
         engine.start()
 
-        try createSignalFile(for: session)
-        try await waitUntil { engine.executionState == .paused }
+        // Complete step 1 → engine hits pause
+        engine.handleStepCompletion()
 
         // Pause session
         try session.transition(to: .paused)
@@ -707,14 +686,14 @@ struct SessionStateIntegrationTests {
 
         #expect(session.state == .running)
         #expect(engine.executionState == .executing)
-        #expect(mock.injectedPrompts.map(promptBody) == ["Before", "After"])
+        #expect(mock.injectedPrompts == ["Before", "After"])
         cleanup()
     }
 
     // MARK: - Completion
 
     @Test("last step completing transitions session to completed")
-    func lastStepCompletesSession() async throws {
+    func lastStepCompletesSession() throws {
         var session = makeSession(state: .running)
         let workflow = Workflow(name: "W", phases: [
             makePhase(steps: [makeStep(id: "only", prompt: "Only step")])
@@ -730,8 +709,7 @@ struct SessionStateIntegrationTests {
         )
         engine.start()
 
-        try createSignalFile(for: session)
-        try await waitUntil { engine.executionState == .completed }
+        engine.handleStepCompletion()
 
         // Session should transition to completed
         try session.transition(to: .completed)
@@ -742,7 +720,7 @@ struct SessionStateIntegrationTests {
     // MARK: - Session Progress Sync
 
     @Test("session indices and completedStepIDs sync from WorkflowEngine after execution")
-    func progressSyncsFromEngine() async throws {
+    func progressSyncsFromEngine() throws {
         var session = makeSession(state: .running)
         let workflow = Workflow(name: "W", phases: [
             makePhase(steps: [
@@ -762,8 +740,7 @@ struct SessionStateIntegrationTests {
         engine.start()
 
         // Complete step 1
-        try createSignalFile(for: session)
-        try await waitUntil { mock.injectedPrompts.count >= 2 }
+        engine.handleStepCompletion()
 
         // Sync progress from engine to session
         session.currentPhaseIndex = engine.currentPhaseIndex

@@ -94,6 +94,10 @@ enum ProcessRunnerFactory {
             return ClaudeProcessRunner()
         case .codex:
             return CodexProcessRunner()
+        case .pi:
+            return PiProcessRunner()
+        case .openCode:
+            return OpenCodeProcessRunner()
         }
     }
 
@@ -104,6 +108,26 @@ enum ProcessRunnerFactory {
             return CLISubprocessTitleBackend(preset: preset)
         case .codex:
             throw ProcessRunnerFactoryError.unavailable(.codex)
+        case .pi:
+            return CLISubprocessTitleBackend(preset: preset)
+        case .openCode:
+            throw ProcessRunnerFactoryError.unavailable(.openCode)
+        }
+    }
+
+    /// Returns a `TitleSynthesisBackend` for one-shot title generation using the configured provider.
+    static func makeTitleBackend(provider: SidebarTitleProvider) throws -> any TitleSynthesisBackend {
+        switch provider {
+        case .foundationModels:
+            return FoundationModelsTitleBackend()
+        case .claude:
+            return CLISubprocessTitleBackend(preset: .claude)
+        case .codex:
+            throw ProcessRunnerFactoryError.unavailable(.codex)
+        case .pi:
+            return CLISubprocessTitleBackend(preset: .pi)
+        case .openCode:
+            throw ProcessRunnerFactoryError.unavailable(.openCode)
         }
     }
 
@@ -113,4 +137,3 @@ enum ProcessRunnerFactory {
         "cli/\(preset.rawValue)"
     }
 }
-

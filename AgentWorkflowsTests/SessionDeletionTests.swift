@@ -206,7 +206,6 @@ struct SessionDeletionTests {
 
         let dir = sessionDir(for: session)
         try "task data".write(to: dir.appendingPathComponent("tasks.json"), atomically: true, encoding: .utf8)
-        try "progress".write(to: dir.appendingPathComponent("progress.txt"), atomically: true, encoding: .utf8)
 
         try store.deleteSession(session)
 

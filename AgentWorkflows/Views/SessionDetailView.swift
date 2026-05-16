@@ -64,14 +64,18 @@ struct SessionDetailView<Header: View>: View {
                     } label: {
                         Label("Inspector", systemImage: "sidebar.trailing")
                     }
-                    .help("Toggle Inspector")
+                    .help("Toggle Inspector (⌃⌘I)")
                 }
             }
             .onReceive(NotificationCenter.default.publisher(for: .awToggleInspector)) { _ in
                 inspectorPresented.toggle()
             }
+            .onReceive(NotificationCenter.default.publisher(for: .awSessionTogglePlayback)) { _ in
+                togglePlayback()
+            }
             .task(id: session.id) {
                 loadWorkflow()
+                primeTaskCounts()
             }
             .onChange(of: session.workflowName) { _, _ in
                 loadWorkflow()
@@ -85,7 +89,7 @@ struct SessionDetailView<Header: View>: View {
             .onChange(of: workflowEngine?.completedStepIDs) { _, _ in
                 syncProgress()
             }
-            .sheet(isPresented: $seedPromptPresented) {
+            .sheet(isPresented: $seedPromptPresented, onDismiss: focusTerminal) {
                 SessionSeedSheet(
                     onConfirm: { text in
                         seedIdea = text
@@ -93,7 +97,7 @@ struct SessionDetailView<Header: View>: View {
                         let sessionID = session.id
                         let store = sessionStore
                         let titleBackend = try? ProcessRunnerFactory.makeTitleBackend(
-                            preset: settingsStore.settings.sidebarTitleCLI
+                            provider: settingsStore.settings.sidebarTitleProvider
                         )
                         Task {
                             let synthesizer = DefaultSessionTitleSynthesizer(backend: titleBackend)
@@ -177,7 +181,15 @@ struct SessionDetailView<Header: View>: View {
             status.finishRun()
         case .running:
             status.driverState = .running
-            if status.startedAt == nil { status.beginRun() }
+            if status.startedAt == nil {
+                status.beginRun()
+                if let dir = workflowEngine?.progressDirectoryPath {
+                    let passes = WorkflowEngine.readPasses(progressDir: dir)
+                    if !passes.isEmpty {
+                        status.applyIteration(count: 0, passes: passes)
+                    }
+                }
+            }
         case .paused:
             status.driverState = .paused
         case .completed:
@@ -197,21 +209,24 @@ struct SessionDetailView<Header: View>: View {
                 Button(action: play) {
                     Image(systemName: "play.fill")
                 }
+                .help("Play Session (⌘↩)")
             case .running:
                 Button(action: stop) {
                     Image(systemName: "stop.fill")
                 }
+                .help("Stop Session (⌘↩)")
             case .paused:
                 Button(action: continueExecution) {
                     Image(systemName: "play.fill")
                 }
+                .help("Continue Session (⌘↩)")
             case .completed:
                 EmptyView()
             case .stalled:
                 Button(action: continueExecution) {
                     Image(systemName: "play.fill")
                 }
-                .help("Continue stalled loop")
+                .help("Continue stalled loop (⌘↩)")
             }
         }
     }
@@ -238,21 +253,50 @@ struct SessionDetailView<Header: View>: View {
         )
     }
 
+    private func focusTerminal() {
+        let activeTool = engineManager.activeTools(for: session.id).last ?? engineManager.defaultAgent
+        let terminalView = engineManager.engine(for: session.id, tool: activeTool).terminalView
+        terminalView.window?.makeFirstResponder(terminalView)
+    }
+
     private func loadWorkflow() {
         workflow = sessionStore.loadWorkflow(for: session)
     }
 
+    private func primeTaskCounts() {
+        guard let dir = progressDirectoryURL else { return }
+        let passes = WorkflowEngine.readPasses(progressDir: dir.path)
+        guard !passes.isEmpty else { return }
+        let status = engineManager.runStatus(for: session.id)
+        status.tasksPassed = passes.filter { $0 }.count
+        status.tasksTotal = passes.count
+    }
+
     private func play() {
         guard workflow != nil else { return }
-        // Show seed sheet only when plan-grill-me has not yet run. Once it
+        // Show seed sheet only when plan-grill-with-docs has not yet run. Once it
         // completes its ID lands in session.completedStepIDs (persisted to
         // disk), so re-Play after Stop never re-prompts. Cancel leaves the
         // session in .idle by not calling startRalphLoop.
-        if !session.completedStepIDs.contains("plan-grill-me") {
+        if !session.completedStepIDs.contains("plan-grill-with-docs") {
             seedPromptPresented = true
             return
         }
         startRalphLoop()
+    }
+
+    private func togglePlayback() {
+        guard workflow != nil else { return }
+        switch session.state {
+        case .idle:
+            play()
+        case .running:
+            stop()
+        case .paused, .stalled:
+            continueExecution()
+        case .completed:
+            break
+        }
     }
 
     private func startRalphLoop() {
@@ -262,7 +306,7 @@ struct SessionDetailView<Header: View>: View {
         } catch {
             return
         }
-        ensureTerminalRunning()
+        ensureTerminalRunning(phaseIndex: session.currentPhaseIndex)
         let workflowEngine = engineManager.createWorkflowEngine(
             session: session,
             workflow: workflow,
@@ -285,7 +329,7 @@ struct SessionDetailView<Header: View>: View {
         } catch {
             return
         }
-        ensureTerminalRunning()
+        ensureTerminalRunning(phaseIndex: session.currentPhaseIndex)
         if let workflowEngine = engineManager.workflowEngine(for: session.id) {
             workflowEngine.continueExecution()
         } else {
@@ -296,7 +340,7 @@ struct SessionDetailView<Header: View>: View {
 
     private func runFromHere(phaseIndex: Int, stepIndex: Int) {
         guard let workflow else { return }
-        ensureTerminalRunning()
+        ensureTerminalRunning(phaseIndex: phaseIndex)
         do {
             if session.state != .running {
                 try sessionStore.transitionSession(session.id, to: .running)
@@ -319,19 +363,34 @@ struct SessionDetailView<Header: View>: View {
         }
     }
 
-    private func ensureTerminalRunning() {
+    private func ensureTerminalRunning(phaseIndex: Int? = nil) {
         // Boot the underlying terminal engine for every session, Ralph or not.
         // The previous `if session.workflowName.isEmpty` guard meant Ralph
-        // sessions never spawned claude, so the WorkflowEngine's
+        // sessions never spawned a CLI, so the WorkflowEngine's
         // injectPrompt calls went into the void.
-        let engine = engineManager.engine(for: session.id)
+        let tool = terminalToolIdentifier(forPhaseIndex: phaseIndex)
+        let engine = engineManager.engine(for: session.id, tool: tool)
         if engine.engineState == .idle {
             try? engine.start(
                 workingDirectory: session.workingDirectory,
-                tool: engineManager.defaultAgent
+                tool: tool
             )
         }
         engineManager.configureResolver(for: session)
+    }
+
+    private func terminalToolIdentifier(forPhaseIndex phaseIndex: Int?) -> String {
+        guard let phaseIndex, let workflow, phaseIndex < workflow.phases.count else {
+            return engineManager.defaultAgent
+        }
+        switch workflow.phases[phaseIndex].name.lowercased() {
+        case "plan":
+            return ProcessRunnerFactory.toolIdentifier(for: settingsStore.settings.planCLI)
+        case "verify":
+            return ProcessRunnerFactory.toolIdentifier(for: settingsStore.settings.verifyCLI)
+        default:
+            return engineManager.defaultAgent
+        }
     }
 
     private func handleExecutionStateChange(_ newState: ExecutionState?) {

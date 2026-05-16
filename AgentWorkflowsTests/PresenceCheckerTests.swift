@@ -27,10 +27,16 @@ struct PresenceCheckerTests {
         try write("# \(name)\n", to: skillFile)
     }
 
-    @Test func requiredSkillsListIsExactlyTheSix() {
+    private func installOpenCodeSkill(_ name: String, in commandsDir: URL) throws {
+        let skillFile = commandsDir
+            .appendingPathComponent("\(name).md")
+        try write("# \(name)\n", to: skillFile)
+    }
+
+    @Test func requiredSkillsListIsExactlyTheCurrentSet() {
         #expect(PresenceChecker.requiredSkills == [
-            "ralph", "grill-me", "ubiquitous-language",
-            "to-prd", "prd-to-tasks", "qa",
+            "grill-with-docs", "to-prd",
+            "to-tasks", "ralph", "qa",
         ])
     }
 
@@ -90,10 +96,9 @@ struct PresenceCheckerTests {
         #expect(!report.missingSkills.contains("ralph"))
         #expect(!report.missingSkills.contains("qa"))
         #expect(!report.missingSkills.contains("to-prd"))
-        #expect(report.missingSkills.contains("grill-me"))
-        #expect(report.missingSkills.contains("ubiquitous-language"))
-        #expect(report.missingSkills.contains("prd-to-tasks"))
-        #expect(report.missingSkills == ["grill-me", "ubiquitous-language", "prd-to-tasks"])
+        #expect(report.missingSkills.contains("grill-with-docs"))
+        #expect(report.missingSkills.contains("to-tasks"))
+        #expect(report.missingSkills == ["grill-with-docs", "to-tasks"])
     }
 
     @Test func missingSkillsDirectoryDegradesToAllAbsent() {
@@ -143,7 +148,7 @@ struct PresenceCheckerTests {
             projectSettingsPath: nil
         )
 
-        // All 6 skills missing in codex dir
+        // All required skills missing in codex dir
         let codexMissing = report.missingSkillsByDirectory.filter { $0.directory == codexSkills }
         #expect(codexMissing.count == PresenceChecker.requiredSkills.count)
         // None missing in claude dir
@@ -180,5 +185,60 @@ struct PresenceCheckerTests {
         let settingsMtimeAfter = try FileManager.default.attributesOfItem(atPath: global.path)[.modificationDate] as? Date
         #expect(mtimeBefore == mtimeAfter)
         #expect(settingsMtimeBefore == settingsMtimeAfter)
+    }
+
+    @Test func openCodeFlatFilesCountAsPresent() throws {
+        let root = try makeTempDir()
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        let commands = root.appendingPathComponent("commands", isDirectory: true)
+        for name in PresenceChecker.requiredSkills {
+            try installOpenCodeSkill(name, in: commands)
+        }
+
+        let report = PresenceChecker.check(
+            skillInstallRoots: [
+                .init(target: .openCode, directory: commands)
+            ]
+        )
+
+        #expect(report.allSkillsPresent)
+        #expect(report.missingSkills.isEmpty)
+    }
+
+    @Test func openCodeMissingFlatFileReportedMissing() throws {
+        let root = try makeTempDir()
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        let commands = root.appendingPathComponent("commands", isDirectory: true)
+        try FileManager.default.createDirectory(at: commands, withIntermediateDirectories: true)
+
+        let report = PresenceChecker.check(
+            skillInstallRoots: [
+                .init(target: .openCode, directory: commands)
+            ]
+        )
+
+        #expect(report.missingSkills == PresenceChecker.requiredSkills)
+    }
+
+    @Test func nonOpenCodeTargetsStillUseDirectoryLayout() throws {
+        let root = try makeTempDir()
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        let skills = root.appendingPathComponent("skills", isDirectory: true)
+        for name in PresenceChecker.requiredSkills {
+            try installSkill(name, in: skills)
+            try write("# flat \(name)\n", to: skills.appendingPathComponent("\(name).md"))
+        }
+
+        let report = PresenceChecker.check(
+            skillInstallRoots: [
+                .init(target: .claude, directory: skills)
+            ]
+        )
+
+        #expect(report.allSkillsPresent)
+        #expect(report.missingSkills.isEmpty)
     }
 }

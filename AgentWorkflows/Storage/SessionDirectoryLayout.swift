@@ -26,12 +26,6 @@ enum SessionDirectoryLayout {
             .appendingPathComponent("tasks.json")
     }
 
-    /// `{sessionDirectory}/progress.txt`
-    static func progressLogURL(workingDirectory: URL, sessionID: UUID) -> URL {
-        sessionDirectory(workingDirectory: workingDirectory, sessionID: sessionID)
-            .appendingPathComponent("progress.txt")
-    }
-
     /// `{sessionDirectory}/events.jsonl`
     static func eventsLogURL(workingDirectory: URL, sessionID: UUID) -> URL {
         sessionDirectory(workingDirectory: workingDirectory, sessionID: sessionID)

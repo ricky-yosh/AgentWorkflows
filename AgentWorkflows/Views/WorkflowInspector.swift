@@ -43,31 +43,35 @@ struct WorkflowInspector: View {
 
             Divider()
             Button {
-                engineManager.confirmYes(sessionID: session.id)
+                engineManager.markStepComplete(sessionID: session.id)
             } label: {
                 HStack(spacing: 6) {
-                    Text("Yes")
+                    Text("Mark step as complete")
                         .fontWeight(.semibold)
-                    Text("⌘↩")
+                    Text("⇧⌘↩")
                         .font(.caption)
                         .foregroundStyle(.white.opacity(0.75))
                 }
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 10)
             }
-            .buttonStyle(ContinueGateButtonStyle(isHovered: continueGateHovered, isEnabled: isCliRunning))
+            .buttonStyle(ContinueGateButtonStyle(isHovered: continueGateHovered, isEnabled: canMarkStepComplete))
             .controlSize(.large)
-            .disabled(!isCliRunning)
-            .keyboardShortcut(.return, modifiers: .command)
+            .disabled(!canMarkStepComplete)
+            .keyboardShortcut(.return, modifiers: [.command, .shift])
             .onHover { continueGateHovered = $0 }
             .padding(.horizontal, 16)
             .padding(.vertical, 12)
         }
         .inspectorColumnWidth(min: 240, ideal: 320, max: 420)
+        .onReceive(NotificationCenter.default.publisher(for: .awSessionMarkStepComplete)) { _ in
+            engineManager.markStepComplete(sessionID: session.id)
+        }
     }
 
-    private var isCliRunning: Bool {
-        engineManager.engine(for: session.id).engineState == .running
+    private var canMarkStepComplete: Bool {
+        guard let we = engineManager.workflowEngine(for: session.id) else { return false }
+        return we.executionState == .executing && we.activeLoopDriver == nil
     }
 
     private func phaseList(workflow: Workflow) -> some View {

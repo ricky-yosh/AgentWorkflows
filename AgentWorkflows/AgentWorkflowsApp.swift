@@ -36,10 +36,24 @@ private struct AppCommands: Commands {
         }
 
         CommandMenu("Session") {
+            Button("Play/Pause Session") {
+                NotificationCenter.default.post(name: .awSessionTogglePlayback, object: nil)
+            }
+            .keyboardShortcut("p", modifiers: [.command, .option])
+            .disabled(isSessionSelected != true)
+
+            Button("Mark Step Complete") {
+                NotificationCenter.default.post(name: .awSessionMarkStepComplete, object: nil)
+            }
+            .keyboardShortcut(.return, modifiers: [.command, .shift])
+            .disabled(isSessionSelected != true)
+
+            Divider()
+
             Button("Open in Finder") {
                 NotificationCenter.default.post(name: .awSessionOpenInFinder, object: nil)
             }
-            .keyboardShortcut("r", modifiers: [.command, .shift])
+            .keyboardShortcut("f", modifiers: [.command, .shift])
             .disabled(isSessionSelected != true)
 
             Button("Open in Editor") {
@@ -58,6 +72,20 @@ private struct AppCommands: Commands {
                 NotificationCenter.default.post(name: .awSessionOpenInDiffViewer, object: nil)
             }
             .keyboardShortcut("d", modifiers: [.command, .shift])
+            .disabled(isSessionSelected != true)
+
+            Divider()
+
+            Button("Copy Session Path") {
+                NotificationCenter.default.post(name: .awSessionCopyPath, object: nil)
+            }
+            .keyboardShortcut("c", modifiers: [.command, .shift])
+            .disabled(isSessionSelected != true)
+
+            Button("Copy Cache Path") {
+                NotificationCenter.default.post(name: .awSessionCopyCachePath, object: nil)
+            }
+            .keyboardShortcut("c", modifiers: [.command, .option, .shift])
             .disabled(isSessionSelected != true)
 
             Divider()

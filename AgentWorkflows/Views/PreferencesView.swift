@@ -29,8 +29,8 @@ struct PreferencesView: View {
 
     private var defaultsTab: some View {
         Form {
-            Section("CLI Presets") {
-                cliPresetRow("Sidebar Title CLI", binding: sidebarTitleBinding, codexEnabled: false)
+            Section("Agent Presets") {
+                sidebarTitleProviderRow("Sidebar Title", binding: sidebarTitleBinding)
                 cliPresetRow("Plan CLI", binding: planCLIBinding)
                 cliPresetRow("Verify CLI", binding: verifyCLIBinding)
                 cliPresetRow("Build CLI", binding: buildCLIBinding)
@@ -52,6 +52,8 @@ struct PreferencesView: View {
                         .disabled(true)
                         .help("Codex title backend coming soon")
                 }
+                Button("pi") { binding.wrappedValue = .pi }
+                Button("openCode") { binding.wrappedValue = .openCode }
             } label: {
                 Text(binding.wrappedValue.rawValue.capitalized)
             }
@@ -59,14 +61,41 @@ struct PreferencesView: View {
         }
     }
 
+    @ViewBuilder
+    private func sidebarTitleProviderRow(_ label: String, binding: Binding<SidebarTitleProvider>) -> some View {
+        LabeledContent(label) {
+            Menu {
+                Button(SidebarTitleProvider.foundationModels.displayName) {
+                    binding.wrappedValue = .foundationModels
+                }
+                Divider()
+                Button(SidebarTitleProvider.claude.displayName) {
+                    binding.wrappedValue = .claude
+                }
+                Button(SidebarTitleProvider.codex.displayName) {}
+                    .disabled(true)
+                    .help("Codex title backend coming soon")
+                Button(SidebarTitleProvider.pi.displayName) {
+                    binding.wrappedValue = .pi
+                }
+                Button(SidebarTitleProvider.openCode.displayName) {
+                    binding.wrappedValue = .openCode
+                }
+            } label: {
+                Text(binding.wrappedValue.displayName)
+            }
+            .fixedSize()
+        }
+    }
+
     // MARK: - Custom Bindings (Defaults)
 
-    private var sidebarTitleBinding: Binding<CLIPreset> {
+    private var sidebarTitleBinding: Binding<SidebarTitleProvider> {
         Binding(
-            get: { settingsStore.globalSettings.sidebarTitleCLI },
+            get: { settingsStore.globalSettings.sidebarTitleProvider },
             set: { newValue in
                 var updated = settingsStore.globalSettings
-                updated.sidebarTitleCLI = newValue
+                updated.sidebarTitleProvider = newValue
                 settingsStore.updateGlobal(updated)
             }
         )
@@ -109,12 +138,11 @@ struct PreferencesView: View {
 
     private var thisRepoTab: some View {
         Form {
-            Section("CLI Presets") {
-                perRepoCLIRow(
-                    "Sidebar Title CLI",
-                    keyPath: \.sidebarTitleCLI,
-                    globalValue: settingsStore.globalSettings.sidebarTitleCLI,
-                    codexEnabled: false
+            Section("Agent Presets") {
+                perRepoSidebarTitleProviderRow(
+                    "Sidebar Title",
+                    keyPath: \.sidebarTitleProvider,
+                    globalValue: settingsStore.globalSettings.sidebarTitleProvider
                 )
                 perRepoCLIRow(
                     "Plan CLI",
@@ -169,11 +197,72 @@ struct PreferencesView: View {
                         .disabled(true)
                         .help("Codex title backend coming soon")
                 }
+                Button("pi") {
+                    var partial = settingsStore.perRepoSettings ?? .empty
+                    partial[keyPath: keyPath] = .pi
+                    settingsStore.updatePerRepo(partial)
+                }
+                Button("openCode") {
+                    var partial = settingsStore.perRepoSettings ?? .empty
+                    partial[keyPath: keyPath] = .openCode
+                    settingsStore.updatePerRepo(partial)
+                }
             } label: {
                 if let value = currentValue {
                     Text(value.rawValue)
                 } else {
                     Text("\(globalValue.rawValue) (from Defaults)")
+                        .foregroundStyle(.secondary)
+                }
+            }
+            .fixedSize()
+        }
+    }
+
+    @ViewBuilder
+    private func perRepoSidebarTitleProviderRow(
+        _ label: String,
+        keyPath: WritableKeyPath<PerRepoSettings, SidebarTitleProvider?>,
+        globalValue: SidebarTitleProvider
+    ) -> some View {
+        let currentValue = settingsStore.perRepoSettings?[keyPath: keyPath]
+        LabeledContent(label) {
+            Menu {
+                Button("Inherit from Defaults") {
+                    var partial = settingsStore.perRepoSettings ?? .empty
+                    partial[keyPath: keyPath] = nil
+                    settingsStore.updatePerRepo(partial)
+                }
+                Divider()
+                Button(SidebarTitleProvider.foundationModels.displayName) {
+                    var partial = settingsStore.perRepoSettings ?? .empty
+                    partial[keyPath: keyPath] = .foundationModels
+                    settingsStore.updatePerRepo(partial)
+                }
+                Divider()
+                Button(SidebarTitleProvider.claude.displayName) {
+                    var partial = settingsStore.perRepoSettings ?? .empty
+                    partial[keyPath: keyPath] = .claude
+                    settingsStore.updatePerRepo(partial)
+                }
+                Button(SidebarTitleProvider.codex.displayName) {}
+                    .disabled(true)
+                    .help("Codex title backend coming soon")
+                Button(SidebarTitleProvider.pi.displayName) {
+                    var partial = settingsStore.perRepoSettings ?? .empty
+                    partial[keyPath: keyPath] = .pi
+                    settingsStore.updatePerRepo(partial)
+                }
+                Button(SidebarTitleProvider.openCode.displayName) {
+                    var partial = settingsStore.perRepoSettings ?? .empty
+                    partial[keyPath: keyPath] = .openCode
+                    settingsStore.updatePerRepo(partial)
+                }
+            } label: {
+                if let value = currentValue {
+                    Text(value.displayName)
+                } else {
+                    Text("\(globalValue.displayName) (from Defaults)")
                         .foregroundStyle(.secondary)
                 }
             }
@@ -215,7 +304,7 @@ struct PreferencesView: View {
             Section("Prerequisites") {
                 let home = FileManager.default.homeDirectoryForCurrentUser
                 let report = PresenceChecker.check(
-                    skillsDirectories: settingsStore.settings.allSkillsDirectories,
+                    skillTargets: settingsStore.settings.allSkillTargets,
                     globalSettingsPath: home.appendingPathComponent(".claude/settings.json"),
                     projectSettingsPath: nil
                 )

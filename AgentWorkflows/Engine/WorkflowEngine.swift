@@ -124,9 +124,13 @@ final class WorkflowEngine {
     /// needing a reference to `EngineManager`.
     weak var sessionRunStatus: SessionRunStatus?
 
+    var progressDirectoryPath: String {
+        (signalFilePath as NSString).deletingLastPathComponent
+    }
+
     /// One-shot text prepended to the next prompt-step injection. Used by
     /// the pre-Play seed prompt to inject a user-supplied intent alongside
-    /// the first slash command (e.g. "\(seed)\n/grill-me"). Self-clears
+    /// the first slash command (e.g. "\(seed)\n/grill-with-docs"). Self-clears
     /// after a single use so later steps inject unmodified.
     private var pendingSeed: String?
 
@@ -146,8 +150,7 @@ final class WorkflowEngine {
         engineResolver: @escaping (String?) -> AgentEngine,
         signalFilePath: String,
         settingsStore: SettingsStore? = nil,
-        processRunner: (any ProcessRunner)? = nil,
-        signalWatcher: SignalWatcher? = nil
+        processRunner: (any ProcessRunner)? = nil
     ) {
         self.session = session
         self.workflow = workflow
@@ -158,13 +161,7 @@ final class WorkflowEngine {
         self.completedStepIDs = session.completedStepIDs
         self.settingsStore = settingsStore
         self.processRunnerOverride = processRunner
-        let watcher = signalWatcher ?? DispatchSourceSignalWatcher()
-        let dispatcher = PromptDispatcher(watcher: watcher)
-        self.promptDispatcher = dispatcher
-        // All stored properties initialized; safe to capture self.
-        dispatcher.onSignalFired = { [weak self] in
-            self?.handleStepCompletion()
-        }
+        self.promptDispatcher = PromptDispatcher()
         loadEventsFromDisk()
     }
 
@@ -355,19 +352,15 @@ final class WorkflowEngine {
                     engine.onProcessExit = { [weak self] in
                         DispatchQueue.main.async { self?.handleProcessCrash() }
                     }
-                    var text = promptText.trimmingCharacters(in: .whitespacesAndNewlines)
+                    var text = adaptSkillCommands(
+                        in: promptText.trimmingCharacters(in: .whitespacesAndNewlines),
+                        for: agent
+                    )
                     if let seed = pendingSeed {
                         text = "\(seed)\n\(text)"
                         pendingSeed = nil
                     }
-                    let progressPath = (signalFilePath as NSString).deletingLastPathComponent
-                    // swiftlint:disable:next force_try
-                    let wrapped = try! PromptSignalFooterWrapper.wrap(
-                        promptBody: text,
-                        progressPath: progressPath,
-                        sessionId: session.id.uuidString
-                    )
-                    promptDispatcher.dispatch(wrapped, to: engine, signalFilePath: signalFilePath)
+                    promptDispatcher.dispatch(text, to: engine)
                     let agentLabel = agent ?? "default"
                     record(.promptSent, "Injected prompt to \(agentLabel)")
                 } else {
@@ -562,6 +555,40 @@ final class WorkflowEngine {
         return workflow.resolvedAgent(for: step, in: phase)
     }
 
+    /// The shipped workflow is written in Claude/OpenCode slash-command syntax.
+    /// Translate only leading skill invocations; leave normal prompt text and
+    /// slash-prefixed prose untouched.
+    private func adaptSkillCommands(in prompt: String, for agent: String?) -> String {
+        guard let preset = cliPreset(for: agent) else { return prompt }
+        let knownSkills = Set(PresenceChecker.requiredSkills)
+        return prompt
+            .split(separator: "\n", omittingEmptySubsequences: false)
+            .map { lineSubsequence -> String in
+                let line = String(lineSubsequence)
+                guard line.hasPrefix("/") else { return line }
+                let withoutSlash = String(line.dropFirst())
+                let parts = withoutSlash.split(separator: " ", maxSplits: 1, omittingEmptySubsequences: false)
+                guard let rawName = parts.first else { return line }
+                let name = String(rawName)
+                guard knownSkills.contains(name) else { return line }
+                let suffix = parts.count > 1 ? " \(parts[1])" : ""
+                switch preset {
+                case .pi:
+                    return "/skill:\(name)\(suffix)"
+                case .codex:
+                    return "$\(name)\(suffix)"
+                case .claude, .openCode:
+                    return line
+                }
+            }
+            .joined(separator: "\n")
+    }
+
+    private func cliPreset(for agent: String?) -> CLIPreset? {
+        guard let agent, agent.hasPrefix("cli/") else { return nil }
+        return CLIPreset(rawValue: String(agent.dropFirst(4)))
+    }
+
     // MARK: - Navigation
 
     private func findNextIncompleteStep(fromPhase phaseIndex: Int, stepIndex: Int) -> (Int, Int)? {
@@ -578,9 +605,9 @@ final class WorkflowEngine {
         return nil
     }
 
-    // MARK: - Signal File Watching
+    // MARK: - Step Completion
 
-    private func handleStepCompletion() {
+    func handleStepCompletion() {
         promptDispatcher.cancelWatcher()
         activeEngine?.onProcessExit = nil  // step succeeded — don't treat later exit as crash
         guard executionState == .executing else { return }

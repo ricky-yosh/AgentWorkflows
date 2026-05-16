@@ -85,7 +85,7 @@ enum SkillInstaller {
             case .modified:
                 ops.append(.update(name: skill.name, sourceURL: skill.sourceURL, requiresConsent: true))
             case .missing:
-                break
+                ops.append(.install(name: skill.name, sourceURL: skill.sourceURL))
             }
 
         case .removeSpecific(let name):

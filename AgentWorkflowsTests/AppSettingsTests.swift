@@ -100,6 +100,21 @@ struct AppSettingsTests {
         #expect(settings.buildCLI == .codex)            // from per-repo
     }
 
+    @Test func piValuesLoadFromGlobalAndPerRepo() throws {
+        let store = InMemoryStore()
+        let globalJSON = #"{"sidebarTitleProvider":"pi","planCLI":"pi","verifyCLI":"claude","buildCLI":"claude"}"#
+        store.files[globalURL] = Data(globalJSON.utf8)
+        let perRepoJSON = #"{"verifyCLI":"pi","buildCLI":"pi"}"#
+        store.files[perRepoURL] = Data(perRepoJSON.utf8)
+        let appSettings = makeAppSettings(store: store)
+        let settings = try appSettings.load()
+
+        #expect(settings.sidebarTitleProvider == .pi)
+        #expect(settings.planCLI == .pi)
+        #expect(settings.verifyCLI == .pi)
+        #expect(settings.buildCLI == .pi)
+    }
+
     // MARK: - Load: malformed JSON
 
     @Test func malformedGlobalThrowsMalformedGlobalError() throws {

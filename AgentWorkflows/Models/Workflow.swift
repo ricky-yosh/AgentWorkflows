@@ -138,14 +138,12 @@ extension Workflow {
         defaultAgent: "cli/claude",
         phases: [
             Phase(name: "Plan", steps: [
-                WorkflowStep(id: "plan-grill-me", type: .prompt, label: "Grill Me",
-                             agent: nil, prompt: "/grill-me", promptFile: nil),
-                WorkflowStep(id: "plan-ubiquitous-language", type: .prompt, label: "Update Ubiquitous Language",
-                             agent: nil, prompt: "/ubiquitous-language", promptFile: nil),
+                WorkflowStep(id: "plan-grill-with-docs", type: .prompt, label: "Grill with Docs",
+                             agent: nil, prompt: "/grill-with-docs", promptFile: nil),
                 WorkflowStep(id: "plan-to-prd", type: .prompt, label: "Write PRD",
                              agent: nil, prompt: "/to-prd {progress-path}", promptFile: nil),
-                WorkflowStep(id: "plan-prd-to-tasks", type: .prompt, label: "PRD to Tasks",
-                             agent: nil, prompt: "/prd-to-tasks {progress-path}", promptFile: nil),
+                WorkflowStep(id: "plan-to-tasks", type: .prompt, label: "Tasks",
+                             agent: nil, prompt: "/to-tasks {progress-path}", promptFile: nil),
             ]),
             Phase(name: "Build", steps: [
                 WorkflowStep(id: "build-iterate", type: .iterateTasks, label: nil,
