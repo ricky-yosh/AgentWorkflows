@@ -76,6 +76,33 @@ struct SettingsStoreTests {
         #expect(store.settings == expected)
     }
 
+    @Test func updateGlobalWithPiPersistsAndReloads() throws {
+        let disk = InMemoryDisk()
+        let store = makeStore(disk: disk)
+        let updated = Settings(sidebarTitleCLI: .pi, planCLI: .pi, verifyCLI: .pi, buildCLI: .pi)
+        store.updateGlobal(updated)
+
+        let savedData = try #require(disk.files[globalURL])
+        let reloaded = try JSONDecoder().decode(Settings.self, from: savedData)
+        #expect(reloaded == updated)
+    }
+
+    @Test func updateGlobalOpenCodeThenReturnToDefaults() throws {
+        let disk = InMemoryDisk()
+        let store = makeStore(disk: disk)
+
+        let openCode = Settings(sidebarTitleCLI: .openCode, planCLI: .openCode, verifyCLI: .openCode, buildCLI: .openCode)
+        store.updateGlobal(openCode)
+        #expect(store.settings == openCode)
+
+        store.updateGlobal(.default)
+        #expect(store.settings == .default)
+
+        let savedData = try #require(disk.files[globalURL])
+        let reloaded = try JSONDecoder().decode(Settings.self, from: savedData)
+        #expect(reloaded == .default)
+    }
+
     // MARK: - Debounced Persistence
 
     @Test func updateGlobalPersistsAfterSchedulerFires() throws {

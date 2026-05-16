@@ -29,7 +29,9 @@
       "Bash(mkdir:*)",
       "Bash(: >:*)",
       "Bash(printf:*)",
-      "Bash(codex exec:*)"
+      "Bash(codex exec:*)",
+      "WebFetch(domain:opencode.ai)",
+      "WebFetch(domain:github.com)"
     ]
   }
 }

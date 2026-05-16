@@ -63,12 +63,12 @@ final class EngineManager {
     /// by looking up the binary name from `CLIPreset.invocationRecipe`. Returns nil
     /// for unrecognised identifiers (e.g. `"cli/zsh"`), letting TerminalEngine fall
     /// back to its default login shell.
-    private static func toolDefinition(for tool: String) -> CLIToolDefinition? {
+    static func toolDefinition(for tool: String) -> CLIToolDefinition? {
         guard tool.hasPrefix("cli/") else { return nil }
         let presetName = String(tool.dropFirst(4))
         guard let preset = CLIPreset(rawValue: presetName),
               let recipe = preset.invocationRecipe else { return nil }
-        return CLIToolDefinition(name: recipe.binaryName, command: recipe.binaryName, defaultArgs: ["--permission-mode", "acceptEdits"])
+        return CLIToolDefinition(name: recipe.binaryName, command: recipe.binaryName, defaultArgs: recipe.terminalArgs)
     }
 
     /// Returns (or creates) the engine for a session + tool pair.
@@ -90,6 +90,10 @@ final class EngineManager {
     /// Returns tool names with active engines for a session, in creation order.
     func activeTools(for sessionID: UUID) -> [String] {
         toolOrder[sessionID] ?? []
+    }
+
+    func existingEngine(for sessionID: UUID, tool: String) -> TerminalEngine? {
+        engines[sessionID]?[tool]
     }
 
     func workflowEngine(for sessionID: UUID) -> WorkflowEngine? {
@@ -151,15 +155,10 @@ final class EngineManager {
         }
     }
 
-    /// Injects a single "y" into the session's active CLI engine. Claude Code's
-    /// interactive TUI reads one character for y/n prompts — sending "yes" ends up
-    /// feeding `e`/`s`/`\r` as keystrokes into whatever state follows the confirm,
-    /// which can cascade into unintended actions or looping.
-    /// No-op when the engine is not running.
-    func confirmYes(sessionID: UUID) {
-        let tool = defaultAgent
-        guard let engine = engines[sessionID]?[tool] else { return }
-        engine.injectPrompt("y")
+    /// Marks the current prompt step complete and advances the workflow.
+    /// No-op when no workflow engine is executing a prompt step.
+    func markStepComplete(sessionID: UUID) {
+        workflowEngines[sessionID]?.handleStepCompletion()
     }
 
     func removeEngine(for sessionID: UUID) {

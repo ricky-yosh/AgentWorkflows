@@ -36,4 +36,36 @@ struct SessionRunStatusTests {
         status.applyIteration(count: 0, passes: [])
         #expect(status.iterationRecords.isEmpty)
     }
+
+    @Test("modelIdentified updates sidebar model label")
+    func modelIdentifiedUpdatesSidebarModelLabel() async {
+        let status = SessionRunStatus()
+        status.beginIteration(number: 1, taskID: 1, taskDescription: "first")
+
+        status.appendEvent(.modelIdentified(provider: "mlx", model: "Qwen3-Coder"))
+
+        #expect(status.sidebarModelLabel == "mlx / Qwen3-Coder")
+    }
+
+    @Test("sidebar model label persists across iterations in a run")
+    func sidebarModelLabelPersistsAcrossIterations() async {
+        let status = SessionRunStatus()
+        status.beginIteration(number: 1, taskID: 1, taskDescription: "first")
+        status.appendEvent(.modelIdentified(provider: "mlx", model: "Qwen3-Coder"))
+        status.applyIteration(count: 1, passes: [false])
+        status.beginIteration(number: 2, taskID: 2, taskDescription: "second")
+
+        #expect(status.sidebarModelLabel == "mlx / Qwen3-Coder")
+    }
+
+    @Test("beginRun resets sidebar model label")
+    func beginRunResetsSidebarModelLabel() async {
+        let status = SessionRunStatus()
+        status.beginIteration(number: 1, taskID: 1, taskDescription: "first")
+        status.appendEvent(.modelIdentified(provider: "mlx", model: "Qwen3-Coder"))
+
+        status.beginRun()
+
+        #expect(status.sidebarModelLabel == nil)
+    }
 }

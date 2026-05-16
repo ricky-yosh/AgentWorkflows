@@ -1,7 +1,7 @@
 import SwiftUI
 
 /// Pre-Play seed prompt. Collects the one- or two-sentence intent that
-/// Ralph's opening `/grill-me` needs as its target. The sheet is shown by
+/// Ralph's opening `/grill-with-docs` needs as its target. The sheet is shown by
 /// `SessionDetailView` on the first Play of a session lifetime; cancel
 /// aborts Play, confirm hands the text back through `onConfirm`.
 struct SessionSeedSheet: View {
@@ -20,7 +20,7 @@ struct SessionSeedSheet: View {
             Text("What do you want to build or change?")
                 .font(.title2)
                 .fontWeight(.semibold)
-            Text("One or two sentences is enough — you'll refine it during grill-me.")
+            Text("One or two sentences is enough — you'll refine it during grill-with-docs.")
                 .font(.body)
                 .foregroundStyle(.secondary)
 

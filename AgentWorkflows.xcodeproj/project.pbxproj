@@ -38,11 +38,10 @@
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
 				"Resources/Skills/grill-me/SKILL.md",
-				"Resources/Skills/prd-to-tasks/SKILL.md",
 				Resources/Skills/qa/SKILL.md,
 				Resources/Skills/ralph/SKILL.md,
 				"Resources/Skills/to-prd/SKILL.md",
-				"Resources/Skills/ubiquitous-language/SKILL.md",
+				"Resources/Skills/to-tasks/SKILL.md",
 			);
 			target = 906E9EED2F86C12E009DC834 /* AgentWorkflows */;
 		};
@@ -261,9 +260,9 @@
 				"$(SRCROOT)/AgentWorkflows/Engine/PresenceChecker.swift",
 				"$(SRCROOT)/AgentWorkflows/Resources/Skills/ralph/SKILL.md",
 				"$(SRCROOT)/AgentWorkflows/Resources/Skills/grill-me/SKILL.md",
-				"$(SRCROOT)/AgentWorkflows/Resources/Skills/ubiquitous-language/SKILL.md",
+				"$(SRCROOT)/AgentWorkflows/Resources/Skills/grill-with-docs/SKILL.md",
 				"$(SRCROOT)/AgentWorkflows/Resources/Skills/to-prd/SKILL.md",
-				"$(SRCROOT)/AgentWorkflows/Resources/Skills/prd-to-tasks/SKILL.md",
+				"$(SRCROOT)/AgentWorkflows/Resources/Skills/to-tasks/SKILL.md",
 				"$(SRCROOT)/AgentWorkflows/Resources/Skills/qa/SKILL.md",
 			);
 			name = "Generate Skills Manifest";
@@ -271,9 +270,9 @@
 				"$(BUILT_PRODUCTS_DIR)/$(UNLOCALIZED_RESOURCES_FOLDER_PATH)/skills-manifest.json",
 				"$(BUILT_PRODUCTS_DIR)/$(UNLOCALIZED_RESOURCES_FOLDER_PATH)/Skills/ralph/SKILL.md",
 				"$(BUILT_PRODUCTS_DIR)/$(UNLOCALIZED_RESOURCES_FOLDER_PATH)/Skills/grill-me/SKILL.md",
-				"$(BUILT_PRODUCTS_DIR)/$(UNLOCALIZED_RESOURCES_FOLDER_PATH)/Skills/ubiquitous-language/SKILL.md",
+				"$(BUILT_PRODUCTS_DIR)/$(UNLOCALIZED_RESOURCES_FOLDER_PATH)/Skills/grill-with-docs/SKILL.md",
 				"$(BUILT_PRODUCTS_DIR)/$(UNLOCALIZED_RESOURCES_FOLDER_PATH)/Skills/to-prd/SKILL.md",
-				"$(BUILT_PRODUCTS_DIR)/$(UNLOCALIZED_RESOURCES_FOLDER_PATH)/Skills/prd-to-tasks/SKILL.md",
+				"$(BUILT_PRODUCTS_DIR)/$(UNLOCALIZED_RESOURCES_FOLDER_PATH)/Skills/to-tasks/SKILL.md",
 				"$(BUILT_PRODUCTS_DIR)/$(UNLOCALIZED_RESOURCES_FOLDER_PATH)/Skills/qa/SKILL.md",
 			);
 			runOnlyForDeploymentPostprocessing = 0;

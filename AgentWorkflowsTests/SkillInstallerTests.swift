@@ -17,10 +17,10 @@ struct SkillInstallerTests {
 
     // MARK: - firstRun
 
-    @Test func firstRunAllMissingProducesSixInstallOps() {
+    @Test func firstRunAllMissingProducesInstallOps() {
         let skills = PresenceChecker.requiredSkills.map { skill($0, .missing) }
         let plan = SkillInstaller.plan(skills: skills, intent: .firstRun)
-        #expect(plan.ops.count == 6)
+        #expect(plan.ops.count == PresenceChecker.requiredSkills.count)
         #expect(plan.blocked.isEmpty)
         for op in plan.ops {
             if case .install = op { } else {
@@ -32,27 +32,26 @@ struct SkillInstallerTests {
     @Test func firstRunMixedMissingAndCleanInstallsOnlyMissing() {
         let skills = [
             skill("ralph", .missing),
-            skill("grill-me", .clean),
-            skill("ubiquitous-language", .missing),
+            skill("grill-with-docs", .clean),
+            skill("to-tasks", .missing),
             skill("to-prd", .clean),
-            skill("prd-to-tasks", .missing),
             skill("qa", .clean),
         ]
         let plan = SkillInstaller.plan(skills: skills, intent: .firstRun)
-        #expect(plan.ops.count == 3)
+        #expect(plan.ops.count == 2)
         #expect(plan.blocked.isEmpty)
         let installedNames = plan.ops.compactMap { op -> String? in
             if case .install(let name, _) = op { return name }
             return nil
         }
-        #expect(Set(installedNames) == ["ralph", "ubiquitous-language", "prd-to-tasks"])
+        #expect(Set(installedNames) == ["ralph", "to-tasks"])
     }
 
     @Test func firstRunSkipsModifiedAndStale() {
         let skills = [
             skill("ralph", .modified),
-            skill("grill-me", .stale),
-            skill("ubiquitous-language", .clean),
+            skill("grill-with-docs", .stale),
+            skill("to-tasks", .clean),
         ]
         let plan = SkillInstaller.plan(skills: skills, intent: .firstRun)
         #expect(plan.ops.isEmpty)
@@ -64,8 +63,8 @@ struct SkillInstallerTests {
     @Test func updateAllCleanOmitsModified() {
         let skills = [
             skill("ralph", .clean),
-            skill("grill-me", .stale),
-            skill("ubiquitous-language", .modified),
+            skill("grill-with-docs", .stale),
+            skill("to-tasks", .modified),
             skill("to-prd", .missing),
         ]
         let plan = SkillInstaller.plan(skills: skills, intent: .updateAllClean)
@@ -75,7 +74,7 @@ struct SkillInstallerTests {
             if case .update(let name, _, _) = op { return name }
             return nil
         }
-        #expect(Set(updatedNames) == ["ralph", "grill-me"])
+        #expect(Set(updatedNames) == ["ralph", "grill-with-docs"])
     }
 
     @Test func updateAllCleanSkipsMissing() {
@@ -86,7 +85,7 @@ struct SkillInstallerTests {
     }
 
     @Test func updateAllCleanProducesNoConsentOps() {
-        let skills = [skill("ralph", .stale), skill("grill-me", .clean)]
+        let skills = [skill("ralph", .stale), skill("grill-with-docs", .clean)]
         let plan = SkillInstaller.plan(skills: skills, intent: .updateAllClean)
         for op in plan.ops {
             if case .update(_, _, let requiresConsent) = op {
@@ -100,8 +99,8 @@ struct SkillInstallerTests {
     @Test func updateAllMarksModifiedAsRequiresConsent() {
         let skills = [
             skill("ralph", .clean),
-            skill("grill-me", .modified),
-            skill("ubiquitous-language", .stale),
+            skill("grill-with-docs", .modified),
+            skill("to-tasks", .stale),
         ]
         let plan = SkillInstaller.plan(skills: skills, intent: .updateAll)
         #expect(plan.ops.count == 3)
@@ -112,8 +111,8 @@ struct SkillInstallerTests {
             }
         }
         #expect(consentMap["ralph"] == false)
-        #expect(consentMap["grill-me"] == true)
-        #expect(consentMap["ubiquitous-language"] == false)
+        #expect(consentMap["grill-with-docs"] == true)
+        #expect(consentMap["to-tasks"] == false)
     }
 
     @Test func updateAllSkipsMissing() {
@@ -128,17 +127,17 @@ struct SkillInstallerTests {
     @Test func removeAllUnmodifiedBlocksModifiedWithReason() {
         let skills = [
             skill("ralph", .clean),
-            skill("grill-me", .stale),
-            skill("ubiquitous-language", .modified),
+            skill("grill-with-docs", .stale),
+            skill("to-tasks", .modified),
         ]
         let plan = SkillInstaller.plan(skills: skills, intent: .removeAllUnmodified)
         let removedNames = plan.ops.compactMap { op -> String? in
             if case .remove(let name) = op { return name }
             return nil
         }
-        #expect(Set(removedNames) == ["ralph", "grill-me"])
+        #expect(Set(removedNames) == ["ralph", "grill-with-docs"])
         #expect(plan.blocked.count == 1)
-        #expect(plan.blocked[0].skillName == "ubiquitous-language")
+        #expect(plan.blocked[0].skillName == "to-tasks")
         #expect(!plan.blocked[0].reason.isEmpty)
     }
 
@@ -165,10 +164,10 @@ struct SkillInstallerTests {
         #expect(plan.blocked.isEmpty)
     }
 
-    @Test func updateSpecificMissingProducesNoOps() {
+    @Test func updateSpecificMissingProducesInstallOp() {
         let skills = [skill("ralph", .missing)]
         let plan = SkillInstaller.plan(skills: skills, intent: .updateSpecific(name: "ralph"))
-        #expect(plan.ops.isEmpty)
+        #expect(plan.ops == [.install(name: "ralph", sourceURL: fakeURL.appendingPathComponent("ralph/SKILL.md"))])
         #expect(plan.blocked.isEmpty)
     }
 

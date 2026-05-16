@@ -27,6 +27,20 @@ enum DocsFileScanner {
             }
             .sorted { $0.lastPathComponent.localizedStandardCompare($1.lastPathComponent) == .orderedAscending }
     }
+
+    static func scanDirectoryRecursive(_ directory: URL) -> [URL] {
+        let fm = FileManager.default
+        guard let enumerator = fm.enumerator(
+            at: directory,
+            includingPropertiesForKeys: [.fileSizeKey, .isRegularFileKey],
+            options: [.skipsHiddenFiles, .skipsPackageDescendants]
+        ) else { return [] }
+        return (enumerator.allObjects as? [URL] ?? [])
+            .filter { url in
+                (try? url.resourceValues(forKeys: [.isRegularFileKey]).isRegularFile) ?? false
+            }
+            .sorted { $0.lastPathComponent.localizedStandardCompare($1.lastPathComponent) == .orderedAscending }
+    }
 }
 
 // MARK: - DocsView
@@ -36,16 +50,22 @@ struct DocsView: View {
     @Environment(SessionStore.self) private var sessionStore
 
     @State private var files: [URL] = []
+    @State private var projectFiles: [URL] = []
     @State private var leftFile: URL?
     @State private var rightFile: URL?
     @State private var isSplit = false
     @State private var focusedPane: Pane = .left
     @State private var watcher = DirectoryWatcher()
+    @State private var awWatcher = DirectoryWatcher()
 
     private enum Pane { case left, right }
 
     private var sessionDirectory: URL {
         sessionStore.sessionDirectoryURL(for: session)
+    }
+
+    private var awDirectory: URL {
+        URL(fileURLWithPath: session.workingDirectory).appendingPathComponent(".aw")
     }
 
     var body: some View {
@@ -57,13 +77,19 @@ struct DocsView: View {
         }
         .task(id: session.id) {
             refreshFileList()
+            refreshProjectFiles()
             watcher.watch(directory: sessionDirectory)
+            awWatcher.watch(directory: awDirectory)
         }
         .onChange(of: watcher.lastChangeDate) { _, _ in
             refreshFileList()
         }
+        .onChange(of: awWatcher.lastChangeDate) { _, _ in
+            refreshProjectFiles()
+        }
         .onDisappear {
             watcher.stop()
+            awWatcher.stop()
         }
     }
 
@@ -80,9 +106,19 @@ struct DocsView: View {
                 }
             }
         )) {
-            ForEach(files, id: \.self) { url in
-                FileRowView(url: url)
-                    .tag(url)
+            if !projectFiles.isEmpty {
+                Section("Project") {
+                    ForEach(projectFiles, id: \.self) { url in
+                        FileRowView(url: url)
+                            .tag(url)
+                    }
+                }
+            }
+            Section("Session") {
+                ForEach(files, id: \.self) { url in
+                    FileRowView(url: url)
+                        .tag(url)
+                }
             }
         }
         .listStyle(.inset)
@@ -131,11 +167,20 @@ struct DocsView: View {
 
     private func refreshFileList() {
         files = DocsFileScanner.scanDirectory(sessionDirectory)
-        // Clear selection if the file was deleted
-        if let leftFile, !files.contains(leftFile) {
+        if let leftFile, !files.contains(leftFile) && !projectFiles.contains(leftFile) {
             self.leftFile = nil
         }
-        if let rightFile, !files.contains(rightFile) {
+        if let rightFile, !files.contains(rightFile) && !projectFiles.contains(rightFile) {
+            self.rightFile = nil
+        }
+    }
+
+    private func refreshProjectFiles() {
+        projectFiles = DocsFileScanner.scanDirectoryRecursive(awDirectory)
+        if let leftFile, !projectFiles.contains(leftFile) && !files.contains(leftFile) {
+            self.leftFile = nil
+        }
+        if let rightFile, !projectFiles.contains(rightFile) && !files.contains(rightFile) {
             self.rightFile = nil
         }
     }
@@ -316,9 +361,7 @@ struct FileContentView: View {
 
     var body: some View {
         Group {
-            if url.lastPathComponent == "progress.txt" {
-                ProgressLogView(fileURL: url)
-            } else if loadError {
+            if loadError {
                 Text("Binary file — cannot display")
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                     .font(.callout)
@@ -394,28 +437,12 @@ struct MarkdownContentView: View {
     var wordWrap: Bool = true
 
     var body: some View {
-        if wordWrap {
-            ScrollView(.vertical) {
-                if let attributed = try? AttributedString(markdown: content, options: .init(interpretedSyntax: .inlineOnlyPreservingWhitespace)) {
-                    Text(attributed)
-                        .textSelection(.enabled)
-                        .padding()
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                } else {
-                    PlainTextContentView(content: content, wordWrap: true)
-                }
-            }
-        } else {
-            ScrollView([.horizontal, .vertical]) {
-                if let attributed = try? AttributedString(markdown: content, options: .init(interpretedSyntax: .inlineOnlyPreservingWhitespace)) {
-                    Text(attributed)
-                        .textSelection(.enabled)
-                        .fixedSize(horizontal: true, vertical: false)
-                        .padding()
-                } else {
-                    PlainTextContentView(content: content, wordWrap: false)
-                }
-            }
+        ScrollView(.vertical) {
+            MarkdownView(content: content)
+                .frame(maxWidth: 590)
+                .padding(.horizontal, 24)
+                .padding(.vertical, 20)
+                .frame(maxWidth: .infinity)
         }
     }
 }

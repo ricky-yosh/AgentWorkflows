@@ -4,6 +4,7 @@ import Foundation
 /// `claude -p --output-format stream-json --verbose`.
 enum IterationEvent: Equatable {
     case sessionStarted(sessionId: String)
+    case modelIdentified(provider: String, model: String)
     case assistantText(String)
     case toolUse(name: String, inputSummary: String)
     case toolResult(summary: String, failed: Bool)

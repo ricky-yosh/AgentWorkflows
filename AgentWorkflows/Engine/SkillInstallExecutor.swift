@@ -12,15 +12,19 @@ enum SkillInstallExecutor {
         let outcome: Outcome
     }
 
-    static func execute(plan: SkillInstaller.Plan, skillsDirectory: URL) -> [OpResult] {
+    static func execute(plan: SkillInstaller.Plan, skillsDirectory: URL, target: SkillTarget) -> [OpResult] {
         var results: [OpResult] = []
         let fm = FileManager.default
 
         for op in plan.ops {
             switch op {
             case .install(let name, let sourceURL):
-                let destDir = skillsDirectory.appendingPathComponent(name)
-                let destFile = destDir.appendingPathComponent("SKILL.md")
+                let destFile = SkillClassifier.installedSkillFileURL(
+                    skillsDirectory: skillsDirectory,
+                    skillName: name,
+                    target: target
+                )
+                let destDir = target == .openCode ? skillsDirectory : destFile.deletingLastPathComponent()
                 do {
                     try fm.createDirectory(at: destDir, withIntermediateDirectories: true)
                     let data = try Data(contentsOf: sourceURL)
@@ -31,8 +35,12 @@ enum SkillInstallExecutor {
                 }
 
             case .update(let name, let sourceURL, _):
-                let destDir = skillsDirectory.appendingPathComponent(name)
-                let destFile = destDir.appendingPathComponent("SKILL.md")
+                let destFile = SkillClassifier.installedSkillFileURL(
+                    skillsDirectory: skillsDirectory,
+                    skillName: name,
+                    target: target
+                )
+                let destDir = target == .openCode ? skillsDirectory : destFile.deletingLastPathComponent()
                 do {
                     try fm.createDirectory(at: destDir, withIntermediateDirectories: true)
                     let data = try Data(contentsOf: sourceURL)
@@ -43,9 +51,14 @@ enum SkillInstallExecutor {
                 }
 
             case .remove(let name):
-                let destDir = skillsDirectory.appendingPathComponent(name)
+                let destFile = SkillClassifier.installedSkillFileURL(
+                    skillsDirectory: skillsDirectory,
+                    skillName: name,
+                    target: target
+                )
+                let removeURL = target == .openCode ? destFile : destFile.deletingLastPathComponent()
                 do {
-                    try fm.removeItem(at: destDir)
+                    try fm.removeItem(at: removeURL)
                     results.append(OpResult(skillName: name, outcome: .succeeded))
                 } catch {
                     results.append(OpResult(skillName: name, outcome: .failed(error.localizedDescription)))

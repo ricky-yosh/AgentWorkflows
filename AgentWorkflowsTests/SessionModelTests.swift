@@ -189,7 +189,7 @@ struct SessionModelTests {
 
 /// Documents the sentinel step ID that gates the pre-Play seed prompt.
 /// SessionDetailView.play shows the seed sheet iff completedStepIDs does
-/// NOT contain "plan-grill-me", so these tests pin that invariant.
+/// NOT contain "plan-grill-with-docs", so these tests pin that invariant.
 struct SeedGatingTests {
 
     private func makeSession(completedStepIDs: [String] = []) -> Session {
@@ -208,19 +208,19 @@ struct SeedGatingTests {
     @Test("fresh session has no completedStepIDs — seed sheet should be shown")
     func freshSessionNeedsSeed() {
         let session = makeSession()
-        #expect(!session.completedStepIDs.contains("plan-grill-me"))
+        #expect(!session.completedStepIDs.contains("plan-grill-with-docs"))
     }
 
-    @Test("session with plan-grill-me completed — seed sheet should be skipped")
-    func grillMeCompletedSkipsSeed() {
-        let session = makeSession(completedStepIDs: ["plan-grill-me"])
-        #expect(session.completedStepIDs.contains("plan-grill-me"))
+    @Test("session with plan-grill-with-docs completed — seed sheet should be skipped")
+    func grillWithDocsCompletedSkipsSeed() {
+        let session = makeSession(completedStepIDs: ["plan-grill-with-docs"])
+        #expect(session.completedStepIDs.contains("plan-grill-with-docs"))
     }
 
     @Test("other completed steps do not satisfy the gating condition")
     func otherCompletedStepsDoNotSatisfyGate() {
-        let session = makeSession(completedStepIDs: ["plan-ubiquitous-language", "plan-to-prd"])
-        #expect(!session.completedStepIDs.contains("plan-grill-me"))
+        let session = makeSession(completedStepIDs: ["plan-to-prd"])
+        #expect(!session.completedStepIDs.contains("plan-grill-with-docs"))
     }
 }
 

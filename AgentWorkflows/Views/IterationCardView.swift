@@ -144,6 +144,7 @@ struct IterationCardView: View {
     private var transcript: some View {
         let visibleEvents = record.events.filter {
             if case .sessionStarted = $0 { return false }
+            if case .modelIdentified = $0 { return false }
             if case .iterationFinished = $0 { return false }
             return true
         }
@@ -157,7 +158,7 @@ struct IterationCardView: View {
         } else {
             ScrollViewReader { proxy in
                 ScrollView {
-                    LazyVStack(alignment: .leading, spacing: 6) {
+                    VStack(alignment: .leading, spacing: 6) {
                         ForEach(0..<visibleEvents.count, id: \.self) { i in
                             EventLineView(event: visibleEvents[i])
                         }
@@ -233,7 +234,7 @@ private struct EventLineView: View {
                     .lineLimit(2)
             }
 
-        case .sessionStarted, .iterationFinished:
+        case .sessionStarted, .modelIdentified, .iterationFinished:
             EmptyView()
         }
     }

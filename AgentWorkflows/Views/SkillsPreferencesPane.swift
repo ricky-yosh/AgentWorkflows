@@ -8,15 +8,17 @@ struct SkillsPreferencesPane: View {
     @State private var approvedConsentOps: [SkillInstaller.Op] = []
     @State private var pendingNonConsentOps: [SkillInstaller.Op] = []
     @State private var activeConsentDirectory: URL?
+    @State private var activeConsentTarget: SkillTarget?
     @State private var installResults: [SkillInstallExecutor.OpResult] = []
     @State private var installBlocked: [SkillInstaller.BlockedOp] = []
     @State private var showInstallResults = false
     @State private var retryPlan: RetryPlan?
 
     struct DirectorySection: Identifiable {
+        let target: SkillTarget
         let directory: URL
         var rows: [SkillRow]
-        var id: String { directory.path }
+        var id: String { target.rawValue }
     }
 
     struct SkillRow: Equatable {
@@ -36,6 +38,7 @@ struct SkillsPreferencesPane: View {
     struct RetryPlan {
         let plan: SkillInstaller.Plan
         let directory: URL
+        let target: SkillTarget
     }
 
     var body: some View {
@@ -48,7 +51,7 @@ struct SkillsPreferencesPane: View {
         }
         .formStyle(.grouped)
         .onAppear { loadClassifications() }
-        .onChange(of: settingsStore.settings.allSkillsDirectories) { _, _ in
+        .onChange(of: settingsStore.settings) { _, _ in
             loadClassifications()
         }
         .sheet(item: $currentConsent) { consent in
@@ -73,7 +76,9 @@ struct SkillsPreferencesPane: View {
                 onRetry: SkillInstallResultSheet.hasFailures(in: installResults) ? {
                     showInstallResults = false
                     if let retry = retryPlan {
-                        DispatchQueue.main.async { executeAndRefresh(plan: retry.plan, directory: retry.directory) }
+                        DispatchQueue.main.async {
+                            executeAndRefresh(plan: retry.plan, target: retry.target, directory: retry.directory)
+                        }
                     }
                 } : nil
             )
@@ -85,48 +90,48 @@ struct SkillsPreferencesPane: View {
     @ViewBuilder
     private func singleDirectoryContent(_ section: DirectorySection) -> some View {
         Section {
-            Button("Update All Clean") { performBulkAction(.updateAllClean, directory: section.directory) }
-                .disabled(!hasSomeUpdatable(in: section))
-            Button("Update All") { performBulkAction(.updateAll, directory: section.directory) }
-                .disabled(!hasSomeUpdatable(in: section))
-            Button("Remove All Unmodified") { performBulkAction(.removeAllUnmodified, directory: section.directory) }
-                .disabled(!hasSomeRemovable(in: section))
-        } header: {
-            directoryHeader(section.directory)
-        }
-        Section("Skills") {
-            ForEach(section.rows, id: \.name) { row in
-                skillRow(row, directory: section.directory)
+                Button("Update All Clean") { performBulkAction(.updateAllClean, target: section.target, directory: section.directory) }
+                    .disabled(!hasSomeUpdatable(in: section))
+                Button("Update All") { performBulkAction(.updateAll, target: section.target, directory: section.directory) }
+                    .disabled(!hasSomeUpdatable(in: section))
+                Button("Remove All Unmodified") { performBulkAction(.removeAllUnmodified, target: section.target, directory: section.directory) }
+                    .disabled(!hasSomeRemovable(in: section))
+            } header: {
+                directoryHeader(section)
+            }
+            Section("Skills") {
+                ForEach(section.rows, id: \.name) { row in
+                    skillRow(row, target: section.target, directory: section.directory)
+                }
             }
         }
-    }
 
     @ViewBuilder
     private var multiDirectoryContent: some View {
         ForEach(sections) { section in
             Section {
-                Button("Update All Clean") { performBulkAction(.updateAllClean, directory: section.directory) }
+                Button("Update All Clean") { performBulkAction(.updateAllClean, target: section.target, directory: section.directory) }
                     .disabled(!hasSomeUpdatable(in: section))
-                Button("Update All") { performBulkAction(.updateAll, directory: section.directory) }
+                Button("Update All") { performBulkAction(.updateAll, target: section.target, directory: section.directory) }
                     .disabled(!hasSomeUpdatable(in: section))
-                Button("Remove All Unmodified") { performBulkAction(.removeAllUnmodified, directory: section.directory) }
+                Button("Remove All Unmodified") { performBulkAction(.removeAllUnmodified, target: section.target, directory: section.directory) }
                     .disabled(!hasSomeRemovable(in: section))
                 ForEach(section.rows, id: \.name) { row in
-                    skillRow(row, directory: section.directory)
+                    skillRow(row, target: section.target, directory: section.directory)
                 }
             } header: {
-                directoryHeader(section.directory)
+                directoryHeader(section)
             }
         }
     }
 
     @ViewBuilder
-    private func directoryHeader(_ directory: URL) -> some View {
+    private func directoryHeader(_ section: DirectorySection) -> some View {
         HStack {
-            Text(abbreviatedPath(directory))
+            Text("\(section.target.displayName): \(abbreviatedPath(section.directory))")
             Spacer()
             Button {
-                NSWorkspace.shared.open(directory)
+                NSWorkspace.shared.open(section.directory)
             } label: {
                 Image(systemName: "folder")
             }
@@ -137,15 +142,14 @@ struct SkillsPreferencesPane: View {
     // MARK: - Per-skill row
 
     @ViewBuilder
-    private func skillRow(_ row: SkillRow, directory: URL) -> some View {
+    private func skillRow(_ row: SkillRow, target: SkillTarget, directory: URL) -> some View {
         HStack {
             Text(row.name)
                 .font(.body)
             Spacer()
             classificationChip(row.classification)
-            Button("Update") { performUpdate(skillName: row.name, directory: directory) }
-                .disabled(Self.isUpdateDisabled(for: row.classification))
-            Button("Remove") { performRemove(skillName: row.name, directory: directory) }
+            Button(Self.updateButtonLabel(for: row.classification)) { performUpdate(skillName: row.name, target: target, directory: directory) }
+            Button("Remove") { performRemove(skillName: row.name, target: target, directory: directory) }
                 .disabled(Self.isRemoveDisabled(for: row.classification))
                 .help(Self.removeDisabledReason(for: row.classification) ?? "")
         }
@@ -163,8 +167,8 @@ struct SkillsPreferencesPane: View {
 
     // MARK: - Static helpers (testable)
 
-    static func isUpdateDisabled(for state: SkillClassifier.State) -> Bool {
-        state == .missing
+    static func updateButtonLabel(for state: SkillClassifier.State) -> String {
+        state == .missing ? "Install" : "Update"
     }
 
     static func isRemoveDisabled(for state: SkillClassifier.State) -> Bool {
@@ -200,25 +204,25 @@ struct SkillsPreferencesPane: View {
 
     // MARK: - Actions
 
-    private func performUpdate(skillName: String, directory: URL) {
+    private func performUpdate(skillName: String, target: SkillTarget, directory: URL) {
         guard let inputs = buildInputs(for: directory) else { return }
         let plan = SkillInstaller.plan(skills: inputs, intent: .updateSpecific(name: skillName))
-        startConsentFlow(for: plan, directory: directory)
+        startConsentFlow(for: plan, target: target, directory: directory)
     }
 
-    private func performRemove(skillName: String, directory: URL) {
+    private func performRemove(skillName: String, target: SkillTarget, directory: URL) {
         guard let inputs = buildInputs(for: directory) else { return }
         let plan = SkillInstaller.plan(skills: inputs, intent: .removeSpecific(name: skillName))
-        executeAndRefresh(plan: plan, directory: directory)
+        executeAndRefresh(plan: plan, target: target, directory: directory)
     }
 
-    private func performBulkAction(_ intent: SkillInstaller.UserIntent, directory: URL) {
+    private func performBulkAction(_ intent: SkillInstaller.UserIntent, target: SkillTarget, directory: URL) {
         guard let inputs = buildInputs(for: directory) else { return }
         let plan = SkillInstaller.plan(skills: inputs, intent: intent)
-        startConsentFlow(for: plan, directory: directory)
+        startConsentFlow(for: plan, target: target, directory: directory)
     }
 
-    private func startConsentFlow(for plan: SkillInstaller.Plan, directory: URL) {
+    private func startConsentFlow(for plan: SkillInstaller.Plan, target: SkillTarget, directory: URL) {
         let consentOps = Self.opsRequiringConsent(in: plan)
         let nonConsent = plan.ops.filter {
             guard case .update(_, _, let requiresConsent) = $0 else { return true }
@@ -226,11 +230,12 @@ struct SkillsPreferencesPane: View {
         }
 
         guard !consentOps.isEmpty else {
-            executeAndRefresh(plan: plan, directory: directory)
+            executeAndRefresh(plan: plan, target: target, directory: directory)
             return
         }
 
         activeConsentDirectory = directory
+        activeConsentTarget = target
         pendingNonConsentOps = nonConsent
         approvedConsentOps = []
 
@@ -238,7 +243,11 @@ struct SkillsPreferencesPane: View {
         for op in consentOps {
             guard case .update(let name, let sourceURL, _) = op else { continue }
             let bundledContent = (try? String(contentsOf: sourceURL, encoding: .utf8)) ?? ""
-            let onDiskFile = directory.appendingPathComponent(name).appendingPathComponent("SKILL.md")
+            let onDiskFile = SkillClassifier.installedSkillFileURL(
+                skillsDirectory: directory,
+                skillName: name,
+                target: target
+            )
             let onDiskContent = (try? String(contentsOf: onDiskFile, encoding: .utf8)) ?? ""
             consents.append(PendingConsent(
                 op: op,
@@ -249,7 +258,7 @@ struct SkillsPreferencesPane: View {
         }
 
         guard !consents.isEmpty else {
-            executeAndRefresh(plan: plan, directory: directory)
+            executeAndRefresh(plan: plan, target: target, directory: directory)
             return
         }
 
@@ -261,13 +270,15 @@ struct SkillsPreferencesPane: View {
         if remainingConsents.isEmpty {
             let resolvedPlan = SkillInstaller.Plan(ops: pendingNonConsentOps + approvedConsentOps, blocked: [])
             let dir = activeConsentDirectory
+            let target = activeConsentTarget
             currentConsent = nil
             pendingNonConsentOps = []
             approvedConsentOps = []
             activeConsentDirectory = nil
-            if let dir {
+            activeConsentTarget = nil
+            if let dir, let target {
                 DispatchQueue.main.async {
-                    executeAndRefresh(plan: resolvedPlan, directory: dir)
+                    executeAndRefresh(plan: resolvedPlan, target: target, directory: dir)
                 }
             }
         } else {
@@ -280,11 +291,11 @@ struct SkillsPreferencesPane: View {
             .map { SkillInstaller.SkillInput(name: $0.name, classification: $0.classification, sourceURL: $0.sourceURL) }
     }
 
-    private func executeAndRefresh(plan: SkillInstaller.Plan, directory: URL) {
-        let results = SkillInstallExecutor.execute(plan: plan, skillsDirectory: directory)
+    private func executeAndRefresh(plan: SkillInstaller.Plan, target: SkillTarget, directory: URL) {
+        let results = SkillInstallExecutor.execute(plan: plan, skillsDirectory: directory, target: target)
         loadClassifications()
         if SkillInstallResultSheet.shouldPresent(results: results, blocked: plan.blocked) {
-            retryPlan = RetryPlan(plan: plan, directory: directory)
+            retryPlan = RetryPlan(plan: plan, directory: directory, target: target)
             installResults = results
             installBlocked = plan.blocked
             showInstallResults = true
@@ -298,10 +309,22 @@ struct SkillsPreferencesPane: View {
         let manifestByName = Dictionary(uniqueKeysWithValues: bundle.manifest.map { ($0.name, $0) })
         let bundledByName = Dictionary(uniqueKeysWithValues: bundle.skills.map { ($0.name, $0) })
 
-        sections = settingsStore.settings.allSkillsDirectories.map { dir in
+        sections = Self.makeSections(manifestByName: manifestByName, bundledByName: bundledByName)
+    }
+
+    static func makeSections(
+        manifestByName: [String: SkillManifestEntry],
+        bundledByName: [String: SkillBundleReader.BundledSkill]
+    ) -> [DirectorySection] {
+        SkillTarget.allCases.map { target in
+            let dir = target.directory
             let rows = PresenceChecker.requiredSkills.compactMap { name -> SkillRow? in
                 guard let entry = manifestByName[name], let bundled = bundledByName[name] else { return nil }
-                let skillFile = dir.appendingPathComponent(name).appendingPathComponent("SKILL.md")
+                let skillFile = SkillClassifier.installedSkillFileURL(
+                    skillsDirectory: dir,
+                    skillName: name,
+                    target: target
+                )
                 let bytesOnDisk = try? Data(contentsOf: skillFile)
                 let state = SkillClassifier.classify(
                     bytesOnDisk: bytesOnDisk,
@@ -310,7 +333,7 @@ struct SkillsPreferencesPane: View {
                 )
                 return SkillRow(name: name, classification: state, sourceURL: bundled.fileURL)
             }
-            return DirectorySection(directory: dir, rows: rows)
+            return DirectorySection(target: target, directory: dir, rows: rows)
         }
     }
 }
@@ -333,6 +356,21 @@ private extension SkillClassifier.State {
         case .clean: return .green
         case .modified: return .orange
         case .stale: return .blue
+        }
+    }
+}
+
+private extension SkillTarget {
+    var displayName: String {
+        switch self {
+        case .claude:
+            return "Claude"
+        case .codex:
+            return "Codex"
+        case .pi:
+            return "Pi"
+        case .openCode:
+            return "OpenCode"
         }
     }
 }

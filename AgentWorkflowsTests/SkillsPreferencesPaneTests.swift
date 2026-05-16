@@ -5,23 +5,22 @@ import Testing
 @Suite("SkillsPreferencesPane")
 struct SkillsPreferencesPaneTests {
 
-    // MARK: - isUpdateDisabled
+    // MARK: - updateButtonLabel
 
-    @Test func updateDisabledForMissing() {
-        #expect(SkillsPreferencesPane.isUpdateDisabled(for: .missing))
+    @Test func updateButtonLabelIsInstallForMissing() {
+        #expect(SkillsPreferencesPane.updateButtonLabel(for: .missing) == "Install")
     }
 
-    @Test func updateEnabledForModified() {
-        // Modified shows a consent sheet instead of being disabled.
-        #expect(!SkillsPreferencesPane.isUpdateDisabled(for: .modified))
+    @Test func updateButtonLabelIsUpdateForModified() {
+        #expect(SkillsPreferencesPane.updateButtonLabel(for: .modified) == "Update")
     }
 
-    @Test func updateEnabledForClean() {
-        #expect(!SkillsPreferencesPane.isUpdateDisabled(for: .clean))
+    @Test func updateButtonLabelIsUpdateForClean() {
+        #expect(SkillsPreferencesPane.updateButtonLabel(for: .clean) == "Update")
     }
 
-    @Test func updateEnabledForStale() {
-        #expect(!SkillsPreferencesPane.isUpdateDisabled(for: .stale))
+    @Test func updateButtonLabelIsUpdateForStale() {
+        #expect(SkillsPreferencesPane.updateButtonLabel(for: .stale) == "Update")
     }
 
     // MARK: - isRemoveDisabled
@@ -92,5 +91,54 @@ struct SkillsPreferencesPaneTests {
             blocked: []
         )
         #expect(SkillsPreferencesPane.opsRequiringConsent(in: plan).isEmpty)
+    }
+
+    @Test func makeSectionsIncludesPiTargetWithAgentsSkillsDirectory() {
+        let manifestByName = Dictionary(
+            uniqueKeysWithValues: PresenceChecker.requiredSkills.map {
+                ($0, SkillManifestEntry(name: $0, sha256: "hash-\($0)", priorSha256s: []))
+            }
+        )
+        let bundledByName = Dictionary(
+            uniqueKeysWithValues: PresenceChecker.requiredSkills.map {
+                ($0, SkillBundleReader.BundledSkill(name: $0, fileURL: URL(fileURLWithPath: "/tmp/\($0)/SKILL.md")))
+            }
+        )
+
+        let sections = SkillsPreferencesPane.makeSections(
+            manifestByName: manifestByName,
+            bundledByName: bundledByName
+        )
+
+        #expect(sections.count == SkillTarget.allCases.count)
+        let piSection = sections.first(where: { $0.target == .pi })
+        #expect(piSection != nil)
+        #expect(piSection?.directory.path.hasSuffix(".agents/skills") == true)
+        #expect(piSection?.rows.count == PresenceChecker.requiredSkills.count)
+    }
+
+    @Test func makeSectionsKeepsCliTargetsIndependent() {
+        let manifestByName = Dictionary(
+            uniqueKeysWithValues: PresenceChecker.requiredSkills.map {
+                ($0, SkillManifestEntry(name: $0, sha256: "hash-\($0)", priorSha256s: []))
+            }
+        )
+        let bundledByName = Dictionary(
+            uniqueKeysWithValues: PresenceChecker.requiredSkills.map {
+                ($0, SkillBundleReader.BundledSkill(name: $0, fileURL: URL(fileURLWithPath: "/tmp/\($0)/SKILL.md")))
+            }
+        )
+
+        let sections = SkillsPreferencesPane.makeSections(
+            manifestByName: manifestByName,
+            bundledByName: bundledByName
+        )
+
+        let directories = Set(sections.map(\.directory.path))
+        #expect(directories.count == SkillTarget.allCases.count)
+        #expect(directories.contains(SkillTarget.claude.directory.path))
+        #expect(directories.contains(SkillTarget.codex.directory.path))
+        #expect(directories.contains(SkillTarget.pi.directory.path))
+        #expect(directories.contains(SkillTarget.openCode.directory.path))
     }
 }

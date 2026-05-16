@@ -9,7 +9,7 @@ final class TerminalEngine: AgentEngine {
     let terminalView: LocalProcessTerminalView
     var templateResolver: TemplateResolver?
     var toolDefinition: CLIToolDefinition?
-    var onStepComplete: (() -> Void)?  // unused by CLI engine — signal file used instead
+    var onStepComplete: (() -> Void)?
     var onProcessExit: (() -> Void)?
     var onProcessReady: (() -> Void)?
     private let writeQueue = DispatchQueue(label: "aw.terminal.write-queue")
@@ -22,6 +22,21 @@ final class TerminalEngine: AgentEngine {
         self.terminalView = view
         // Delegate set after init since self isn't available in property initializers
         view.processDelegate = self
+        TerminalEngine.applyTheme(to: view)
+    }
+
+    private static func applyTheme(to view: LocalProcessTerminalView) {
+        view.nativeBackgroundColor = NSColor(srgbRed: 0x28/255, green: 0x2C/255, blue: 0x34/255, alpha: 1)
+        view.nativeForegroundColor = NSColor(srgbRed: 0xAB/255, green: 0xB2/255, blue: 0xBF/255, alpha: 1)
+        func c(_ r: UInt8, _ g: UInt8, _ b: UInt8) -> Color {
+            Color(red: UInt16(r) * 257, green: UInt16(g) * 257, blue: UInt16(b) * 257)
+        }
+        view.installColors([
+            c(0x3F, 0x44, 0x51), c(0xE0, 0x6C, 0x75), c(0x98, 0xC3, 0x79), c(0xE5, 0xC0, 0x7B),
+            c(0x61, 0xAF, 0xEF), c(0xC6, 0x78, 0xDD), c(0x56, 0xB6, 0xC2), c(0xAB, 0xB2, 0xBF),
+            c(0x4F, 0x56, 0x66), c(0xE0, 0x6C, 0x75), c(0x98, 0xC3, 0x79), c(0xE5, 0xC0, 0x7B),
+            c(0x61, 0xAF, 0xEF), c(0xC6, 0x78, 0xDD), c(0x56, 0xB6, 0xC2), c(0xFF, 0xFF, 0xFF),
+        ])
     }
 
     func start(workingDirectory: String, tool: String) throws {
@@ -75,11 +90,18 @@ final class TerminalEngine: AgentEngine {
     func injectPrompt(_ text: String) {
         guard engineState == .running else { return }
         let resolved = templateResolver?.resolve(text) ?? text
-        let normalized = TerminalEngine.normalizeTerminator(resolved)
+        var stripped = resolved
+        while stripped.hasSuffix("\n") || stripped.hasSuffix("\r") {
+            stripped = String(stripped.dropLast())
+        }
+        // Bracketed paste: inject text into the input without auto-submitting.
+        // The terminal app receives ESC[200~…ESC[201~ and treats contents literally,
+        // so embedded newlines don't fire Enter. The user presses send manually.
+        let pasted = "\u{1b}[200~\(stripped)\u{1b}[201~"
         if processReady {
-            sendToProcess(normalized)
+            sendRaw(pasted)
         } else {
-            pendingPrompt = normalized
+            pendingPrompt = pasted
         }
     }
 
@@ -101,24 +123,6 @@ final class TerminalEngine: AgentEngine {
         return env.map { "\($0.key)=\($0.value)" }
     }
 
-    /// Strips any trailing newline/CR and appends \r so the PTY submits the
-    /// prompt on arrival. Internal \n characters are left for sendToProcess
-    /// to handle via its \n→\r conversion.
-    static func normalizeTerminator(_ text: String) -> String {
-        var s = text
-        while s.hasSuffix("\n") || s.hasSuffix("\r") {
-            s = String(s.dropLast())
-        }
-        return s + "\r"
-    }
-
-    /// Returns the UTF-8 bytes that sendToProcess will write to the PTY for
-    /// `text`. Applies the same \n→\r conversion used in production so tests
-    /// can assert exact byte sequences without a real process.
-    static func bytesForPTY(_ text: String) -> [UInt8] {
-        Array(text.replacingOccurrences(of: "\n", with: "\r").utf8)
-    }
-
     /// Called when the process signals it's ready (terminal title set, directory
     /// update received, or timeout). Flushes any queued prompt.
     private func markReady() {
@@ -129,16 +133,14 @@ final class TerminalEngine: AgentEngine {
         onProcessReady?()
         if let prompt = pendingPrompt {
             pendingPrompt = nil
-            sendToProcess(prompt)
+            sendRaw(prompt)
         }
     }
 
-    private func sendToProcess(_ text: String) {
+    private func sendRaw(_ text: String) {
         writeQueue.async { [weak self] in
             guard let process = self?.terminalView.process else { return }
-            // Replace \n with \r — in a PTY, Enter sends CR (0x0D).
-            // The line discipline converts CR→LF for the process.
-            let data = Array(text.replacingOccurrences(of: "\n", with: "\r").utf8)
+            let data = Array(text.utf8)
             let chunkSize = 1024
             for offset in stride(from: 0, to: data.count, by: chunkSize) {
                 let end = min(offset + chunkSize, data.count)

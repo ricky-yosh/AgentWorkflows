@@ -48,14 +48,6 @@ struct SessionDirectoryLayoutTests {
         #expect(url.path == "/repos/my-project/.aw-cache/12345678-1234-1234-1234-123456789012/tasks.json")
     }
 
-    @Test func progressLogURLIsInsideSessionDirectory() {
-        let url = SessionDirectoryLayout.progressLogURL(
-            workingDirectory: workingDirectory,
-            sessionID: sessionID
-        )
-        #expect(url.path == "/repos/my-project/.aw-cache/12345678-1234-1234-1234-123456789012/progress.txt")
-    }
-
     @Test func eventsLogURLIsInsideSessionDirectory() {
         let url = SessionDirectoryLayout.eventsLogURL(
             workingDirectory: workingDirectory,
@@ -108,7 +100,6 @@ struct SessionDirectoryLayoutTests {
         let artifacts = [
             SessionDirectoryLayout.stateFileURL(workingDirectory: workingDirectory, sessionID: sessionID),
             SessionDirectoryLayout.tasksFileURL(workingDirectory: workingDirectory, sessionID: sessionID),
-            SessionDirectoryLayout.progressLogURL(workingDirectory: workingDirectory, sessionID: sessionID),
             SessionDirectoryLayout.eventsLogURL(workingDirectory: workingDirectory, sessionID: sessionID),
             SessionDirectoryLayout.iterationLogsDirectoryURL(workingDirectory: workingDirectory, sessionID: sessionID),
             SessionDirectoryLayout.signalFileURL(workingDirectory: workingDirectory, sessionID: sessionID),

@@ -65,7 +65,7 @@ final class FakeProcessRunner: ProcessRunner {
 
 // MARK: - WorkflowEngineTests
 
-/// Tests for the workflow execution engine — prompt injection, signal file detection,
+/// Tests for the workflow execution engine — prompt injection, step completion,
 /// auto-advance, pause handling, and clear handling.
 struct WorkflowEngineTests {
 
@@ -125,17 +125,6 @@ struct WorkflowEngineTests {
         signalDir.appendingPathComponent("step-complete-\(session.id.uuidString)").path
     }
 
-    private func createSignalFile(for session: Session) throws {
-        try "".write(toFile: signalFilePath(for: session), atomically: true, encoding: .utf8)
-    }
-
-    /// Strips the signal-footer appended by PromptSignalFooterWrapper, returning only the prompt body.
-    /// Use when comparing injected prompt text against the raw step prompt string.
-    private func promptBody(of wrapped: String) -> String {
-        guard let range = wrapped.range(of: "\n\n---") else { return wrapped }
-        return String(wrapped[wrapped.startIndex..<range.lowerBound])
-    }
-
     /// Polls until the condition is true or timeout elapses.
     private func waitUntil(
         timeout: Duration = .seconds(2),
@@ -167,7 +156,98 @@ struct WorkflowEngineTests {
         engine.start()
 
         #expect(mock.injectedPrompts.count == 1)
-        #expect(promptBody(of: mock.injectedPrompts[0]) == "Hello, agent")
+        #expect(mock.injectedPrompts[0] == "Hello, agent")
+        cleanup()
+    }
+
+    @Test func ralphWorkflowUsesUpdatedPlanSkillSteps() {
+        let planSteps = Workflow.ralph.phases[0].steps
+
+        #expect(planSteps.map(\.id) == [
+            "plan-grill-with-docs",
+            "plan-to-prd",
+            "plan-to-tasks",
+        ])
+        #expect(planSteps.map(\.prompt) == [
+            "/grill-with-docs",
+            "/to-prd {progress-path}",
+            "/to-tasks {progress-path}",
+        ])
+    }
+
+    @Test func codexPromptStepRewritesKnownSkillSlashCommandToSkillMention() throws {
+        let step = makeStep(agent: "cli/codex", prompt: "/to-prd {progress-path}")
+        let workflow = Workflow(name: "W", phases: [makePhase(steps: [step])])
+        let session = makeSession()
+        let mock = MockAgentEngine()
+        mock.engineState = .running
+
+        let engine = WorkflowEngine(
+            session: session,
+            workflow: workflow,
+            engine: mock,
+            signalFilePath: signalFilePath(for: session)
+        )
+        engine.start()
+
+        #expect(mock.injectedPrompts[0] == "$to-prd {progress-path}")
+        cleanup()
+    }
+
+    @Test func piPromptStepRewritesKnownSkillSlashCommandToPiSkillCommand() throws {
+        let step = makeStep(agent: "cli/pi", prompt: "/to-tasks {progress-path}")
+        let workflow = Workflow(name: "W", phases: [makePhase(steps: [step])])
+        let session = makeSession()
+        let mock = MockAgentEngine()
+        mock.engineState = .running
+
+        let engine = WorkflowEngine(
+            session: session,
+            workflow: workflow,
+            engine: mock,
+            signalFilePath: signalFilePath(for: session)
+        )
+        engine.start()
+
+        #expect(mock.injectedPrompts[0] == "/skill:to-tasks {progress-path}")
+        cleanup()
+    }
+
+    @Test func openCodePromptStepKeepsSlashCommand() throws {
+        let step = makeStep(agent: "cli/openCode", prompt: "/grill-with-docs")
+        let workflow = Workflow(name: "W", phases: [makePhase(steps: [step])])
+        let session = makeSession()
+        let mock = MockAgentEngine()
+        mock.engineState = .running
+
+        let engine = WorkflowEngine(
+            session: session,
+            workflow: workflow,
+            engine: mock,
+            signalFilePath: signalFilePath(for: session)
+        )
+        engine.start()
+
+        #expect(mock.injectedPrompts[0] == "/grill-with-docs")
+        cleanup()
+    }
+
+    @Test func commandRewriteLeavesUnknownSlashTextUnchanged() throws {
+        let step = makeStep(agent: "cli/codex", prompt: "/not-a-skill keep this literal")
+        let workflow = Workflow(name: "W", phases: [makePhase(steps: [step])])
+        let session = makeSession()
+        let mock = MockAgentEngine()
+        mock.engineState = .running
+
+        let engine = WorkflowEngine(
+            session: session,
+            workflow: workflow,
+            engine: mock,
+            signalFilePath: signalFilePath(for: session)
+        )
+        engine.start()
+
+        #expect(mock.injectedPrompts[0] == "/not-a-skill keep this literal")
         cleanup()
     }
 
@@ -192,7 +272,7 @@ struct WorkflowEngineTests {
         cleanup()
     }
 
-    @Test func stepIDAddedToCompletedAfterSignal() async throws {
+    @Test func stepIDAddedToCompletedAfterMarkComplete() throws {
         let stepID = "step-001"
         let step = makeStep(id: stepID)
         let workflow = Workflow(name: "W", phases: [makePhase(steps: [step])])
@@ -208,16 +288,15 @@ struct WorkflowEngineTests {
         )
         engine.start()
 
-        try createSignalFile(for: session)
-        try await waitUntil { engine.completedStepIDs.contains(stepID) }
+        engine.handleStepCompletion()
 
         #expect(engine.completedStepIDs == [stepID])
         cleanup()
     }
 
-    // MARK: - Signal File Detection
+    // MARK: - Step Completion (button-driven)
 
-    @Test func signalFileTriggersAdvanceToNextStep() async throws {
+    @Test func handleStepCompletionAdvancesToNextStep() throws {
         let step1 = makeStep(id: "s1", prompt: "First")
         let step2 = makeStep(id: "s2", prompt: "Second")
         let workflow = Workflow(name: "W", phases: [
@@ -234,75 +313,17 @@ struct WorkflowEngineTests {
             signalFilePath: signalFilePath(for: session)
         )
         engine.start()
-        #expect(mock.injectedPrompts.map(promptBody) == ["First"])
+        #expect(mock.injectedPrompts == ["First"])
 
-        try createSignalFile(for: session)
-        try await waitUntil { mock.injectedPrompts.count >= 2 }
+        engine.handleStepCompletion()
 
-        #expect(mock.injectedPrompts.map(promptBody) == ["First", "Second"])
-        cleanup()
-    }
-
-    @Test func signalFileIsDeletedAfterDetection() async throws {
-        let step1 = makeStep(id: "s1")
-        let step2 = makeStep(id: "s2")
-        let workflow = Workflow(name: "W", phases: [
-            makePhase(steps: [step1, step2])
-        ])
-        let session = makeSession()
-        let mock = MockAgentEngine()
-        mock.engineState = .running
-
-        let engine = WorkflowEngine(
-            session: session,
-            workflow: workflow,
-            engine: mock,
-            signalFilePath: signalFilePath(for: session)
-        )
-        engine.start()
-
-        let path = signalFilePath(for: session)
-        try createSignalFile(for: session)
-        try await waitUntil { mock.injectedPrompts.count >= 2 }
-
-        // R6: signal file is deleted after reading
-        #expect(!FileManager.default.fileExists(atPath: path))
-        cleanup()
-    }
-
-    @Test func signalFileOnlyRequiresExistence() async throws {
-        // R6: "Signal file existence alone means done — no payload required"
-        let step1 = makeStep(id: "s1", prompt: "A")
-        let step2 = makeStep(id: "s2", prompt: "B")
-        let workflow = Workflow(name: "W", phases: [
-            makePhase(steps: [step1, step2])
-        ])
-        let session = makeSession()
-        let mock = MockAgentEngine()
-        mock.engineState = .running
-
-        let engine = WorkflowEngine(
-            session: session,
-            workflow: workflow,
-            engine: mock,
-            signalFilePath: signalFilePath(for: session)
-        )
-        engine.start()
-
-        // Create empty file (no content)
-        FileManager.default.createFile(
-            atPath: signalFilePath(for: session),
-            contents: nil
-        )
-        try await waitUntil { mock.injectedPrompts.count >= 2 }
-
-        #expect(mock.injectedPrompts.map(promptBody) == ["A", "B"])
+        #expect(mock.injectedPrompts == ["First", "Second"])
         cleanup()
     }
 
     // MARK: - Auto-Advance
 
-    @Test func fullPhaseExecutesInSequence() async throws {
+    @Test func fullPhaseExecutesInSequence() throws {
         let steps = (1...3).map { i in makeStep(id: "s\(i)", prompt: "Step \(i)") }
         let workflow = Workflow(name: "W", phases: [makePhase(steps: steps)])
         let session = makeSession()
@@ -316,21 +337,17 @@ struct WorkflowEngineTests {
             signalFilePath: signalFilePath(for: session)
         )
         engine.start()
-        #expect(mock.injectedPrompts.map(promptBody) == ["Step 1"])
+        #expect(mock.injectedPrompts == ["Step 1"])
 
-        // Complete step 1 → step 2 fires
-        try createSignalFile(for: session)
-        try await waitUntil { mock.injectedPrompts.count >= 2 }
-        #expect(mock.injectedPrompts.map(promptBody) == ["Step 1", "Step 2"])
+        engine.handleStepCompletion()
+        #expect(mock.injectedPrompts == ["Step 1", "Step 2"])
 
-        // Complete step 2 → step 3 fires
-        try createSignalFile(for: session)
-        try await waitUntil { mock.injectedPrompts.count >= 3 }
-        #expect(mock.injectedPrompts.map(promptBody) == ["Step 1", "Step 2", "Step 3"])
+        engine.handleStepCompletion()
+        #expect(mock.injectedPrompts == ["Step 1", "Step 2", "Step 3"])
         cleanup()
     }
 
-    @Test func advancesToNextPhaseAfterCurrentPhaseCompletes() async throws {
+    @Test func advancesToNextPhaseAfterCurrentPhaseCompletes() throws {
         let phase1Steps = [makeStep(id: "p1s1", prompt: "Phase 1 Step")]
         let phase2Steps = [makeStep(id: "p2s1", prompt: "Phase 2 Step")]
         let workflow = Workflow(name: "W", phases: [
@@ -348,19 +365,17 @@ struct WorkflowEngineTests {
             signalFilePath: signalFilePath(for: session)
         )
         engine.start()
-        #expect(mock.injectedPrompts.map(promptBody) == ["Phase 1 Step"])
+        #expect(mock.injectedPrompts == ["Phase 1 Step"])
 
-        // Complete phase 1's only step → phase 2 starts
-        try createSignalFile(for: session)
-        try await waitUntil { mock.injectedPrompts.count >= 2 }
+        engine.handleStepCompletion()
 
-        #expect(mock.injectedPrompts.map(promptBody) == ["Phase 1 Step", "Phase 2 Step"])
+        #expect(mock.injectedPrompts == ["Phase 1 Step", "Phase 2 Step"])
         #expect(engine.currentPhaseIndex == 1)
         #expect(engine.currentStepIndex == 0)
         cleanup()
     }
 
-    @Test func workflowCompletesAfterLastStep() async throws {
+    @Test func workflowCompletesAfterLastStep() throws {
         let step = makeStep(id: "only", prompt: "Only step")
         let workflow = Workflow(name: "W", phases: [makePhase(steps: [step])])
         let session = makeSession()
@@ -375,15 +390,14 @@ struct WorkflowEngineTests {
         )
         engine.start()
 
-        try createSignalFile(for: session)
-        try await waitUntil { engine.executionState == .completed }
+        engine.handleStepCompletion()
 
         #expect(engine.executionState == .completed)
         #expect(engine.completedStepIDs == ["only"])
         cleanup()
     }
 
-    @Test func multiPhaseWorkflowCompletesAfterAllPhases() async throws {
+    @Test func multiPhaseWorkflowCompletesAfterAllPhases() throws {
         let workflow = Workflow(name: "W", phases: [
             makePhase(name: "P1", steps: [makeStep(id: "s1", prompt: "A")]),
             makePhase(name: "P2", steps: [makeStep(id: "s2", prompt: "B")]),
@@ -400,13 +414,8 @@ struct WorkflowEngineTests {
         )
         engine.start()
 
-        // Complete phase 1
-        try createSignalFile(for: session)
-        try await waitUntil { mock.injectedPrompts.count >= 2 }
-
-        // Complete phase 2
-        try createSignalFile(for: session)
-        try await waitUntil { engine.executionState == .completed }
+        engine.handleStepCompletion()  // complete phase 1
+        engine.handleStepCompletion()  // complete phase 2
 
         #expect(engine.executionState == .completed)
         #expect(engine.completedStepIDs == ["s1", "s2"])
@@ -415,7 +424,7 @@ struct WorkflowEngineTests {
 
     // MARK: - Pause Blocks
 
-    @Test func pauseBlockSetsStateToPaused() async throws {
+    @Test func pauseBlockSetsStateToPaused() throws {
         let step1 = makeStep(id: "s1", prompt: "Do work")
         let pauseStep = makeStep(id: "pause1", type: .pause)
         let step2 = makeStep(id: "s2", prompt: "After pause")
@@ -435,14 +444,13 @@ struct WorkflowEngineTests {
         engine.start()
 
         // Complete step 1 → engine hits pause block
-        try createSignalFile(for: session)
-        try await waitUntil { engine.executionState == .paused }
+        engine.handleStepCompletion()
 
         #expect(engine.executionState == .paused)
         cleanup()
     }
 
-    @Test func pauseBlockDoesNotInjectPrompt() async throws {
+    @Test func pauseBlockDoesNotInjectPrompt() throws {
         let step1 = makeStep(id: "s1", prompt: "Work")
         let pauseStep = makeStep(id: "pause1", type: .pause)
         let step2 = makeStep(id: "s2", prompt: "After pause")
@@ -461,15 +469,14 @@ struct WorkflowEngineTests {
         )
         engine.start()
 
-        try createSignalFile(for: session)
-        try await waitUntil { engine.executionState == .paused }
+        engine.handleStepCompletion()
 
         // Only step1's prompt should have been injected — pause emits no prompt
-        #expect(mock.injectedPrompts.map(promptBody) == ["Work"])
+        #expect(mock.injectedPrompts == ["Work"])
         cleanup()
     }
 
-    @Test func continueAfterPauseResumesNextStep() async throws {
+    @Test func continueAfterPauseResumesNextStep() throws {
         let step1 = makeStep(id: "s1", prompt: "Before")
         let pauseStep = makeStep(id: "pause1", type: .pause)
         let step2 = makeStep(id: "s2", prompt: "After")
@@ -489,14 +496,13 @@ struct WorkflowEngineTests {
         engine.start()
 
         // Complete step 1 → hits pause
-        try createSignalFile(for: session)
-        try await waitUntil { engine.executionState == .paused }
+        engine.handleStepCompletion()
 
         // Continue after pause → step 2 fires
         engine.continueExecution()
 
         #expect(engine.executionState == .executing)
-        #expect(mock.injectedPrompts.map(promptBody) == ["Before", "After"])
+        #expect(mock.injectedPrompts == ["Before", "After"])
         cleanup()
     }
 
@@ -526,7 +532,7 @@ struct WorkflowEngineTests {
 
     // MARK: - Clear Blocks
 
-    @Test func clearBlockAutoAdvancesWithoutSignalFile() async throws {
+    @Test func clearBlockAutoAdvancesWithoutUserAction() async throws {
         let step1 = makeStep(id: "s1", prompt: "Work")
         let clearStep = makeStep(id: "clear1", type: .restartCLI)
         let step2 = makeStep(id: "s2", prompt: "Continue")
@@ -547,11 +553,11 @@ struct WorkflowEngineTests {
         engine.start()
 
         // Complete step 1 → restart CLI action succeeds → step 2 executes
-        try createSignalFile(for: session)
+        engine.handleStepCompletion()
         try await waitUntil { mock.injectedPrompts.count >= 2 }
 
-        // Step 2's prompt should be injected (restart CLI completes without signal file)
-        #expect(mock.injectedPrompts.last.map(promptBody) == "Continue")
+        // Step 2's prompt should be injected (restart CLI completes without user action)
+        #expect(mock.injectedPrompts.last == "Continue")
         cleanup()
     }
 
@@ -575,7 +581,7 @@ struct WorkflowEngineTests {
         engine.restartCLIAction = { _, _, _ in .success(()) }
         engine.start()
 
-        try createSignalFile(for: session)
+        engine.handleStepCompletion()
         try await waitUntil { mock.injectedPrompts.count >= 2 }
 
         // Restart CLI step should be in completedStepIDs after succeeding
@@ -603,11 +609,11 @@ struct WorkflowEngineTests {
         engine.restartCLIAction = { _, _, _ in .success(()) }
         engine.start()
 
-        try createSignalFile(for: session)
+        engine.handleStepCompletion()
         try await waitUntil { mock.injectedPrompts.count >= 2 }
 
         #expect(engine.completedStepIDs.contains("restart1"))
-        #expect(mock.injectedPrompts.last.map(promptBody) == "After")
+        #expect(mock.injectedPrompts.last == "After")
         cleanup()
     }
 
@@ -673,13 +679,13 @@ struct WorkflowEngineTests {
         try await waitUntil { mock.injectedPrompts.count >= 1 }
         #expect(callCount == 2)
         #expect(engine.completedStepIDs.contains("restart1"))
-        #expect(mock.injectedPrompts.last.map(promptBody) == "After restart")
+        #expect(mock.injectedPrompts.last == "After restart")
         cleanup()
     }
 
     // MARK: - Break Blocks (outside loop — auto-advance)
 
-    @Test func breakBlockOutsideLoopAutoAdvances() async throws {
+    @Test func breakBlockOutsideLoopAutoAdvances() throws {
         let step1 = makeStep(id: "s1", prompt: "Before")
         let breakStep = makeStep(id: "brk", type: .break_)
         let step2 = makeStep(id: "s2", prompt: "After")
@@ -698,11 +704,10 @@ struct WorkflowEngineTests {
         )
         engine.start()
 
-        try createSignalFile(for: session)
-        try await waitUntil { mock.injectedPrompts.count >= 2 }
+        engine.handleStepCompletion()
 
         // Break block should auto-advance when not in a loop context
-        #expect(mock.injectedPrompts.map(promptBody) == ["Before", "After"])
+        #expect(mock.injectedPrompts == ["Before", "After"])
         cleanup()
     }
 
@@ -751,7 +756,7 @@ struct WorkflowEngineTests {
         cleanup()
     }
 
-    @Test func stopCancelsSignalFileWatching() async throws {
+    @Test func stopPreventsStepCompletion() throws {
         let step1 = makeStep(id: "s1", prompt: "Work")
         let step2 = makeStep(id: "s2", prompt: "More")
         let workflow = Workflow(name: "W", phases: [
@@ -770,11 +775,10 @@ struct WorkflowEngineTests {
         engine.start()
         engine.stop()
 
-        // Signal file created after stop should NOT trigger advancement
-        try createSignalFile(for: session)
-        try await Task.sleep(for: .milliseconds(200))
+        // handleStepCompletion after stop is a no-op — engine is not executing
+        engine.handleStepCompletion()
 
-        #expect(mock.injectedPrompts.map(promptBody) == ["Work"])
+        #expect(mock.injectedPrompts == ["Work"])
         #expect(engine.executionState == .idle)
         cleanup()
     }
@@ -804,7 +808,7 @@ struct WorkflowEngineTests {
         engine.start()
 
         // Should skip s1 and s2, inject s3 directly
-        #expect(mock.injectedPrompts.map(promptBody) == ["Third"])
+        #expect(mock.injectedPrompts == ["Third"])
         cleanup()
     }
 
@@ -830,7 +834,7 @@ struct WorkflowEngineTests {
         engine.start()
 
         // Should start from phase 2's first step
-        #expect(mock.injectedPrompts.map(promptBody) == ["Phase 2"])
+        #expect(mock.injectedPrompts == ["Phase 2"])
         cleanup()
     }
 
@@ -872,7 +876,7 @@ struct WorkflowEngineTests {
         )
         engine.start()
 
-        #expect(mock.injectedPrompts.map(promptBody) == ["Here"])
+        #expect(mock.injectedPrompts == ["Here"])
         #expect(engine.currentPhaseIndex == 1)
         cleanup()
     }
@@ -962,7 +966,7 @@ struct WorkflowEngineTests {
 
     // MARK: - Phase and Step Index Tracking
 
-    @Test func currentStepIndexAdvancesWithinPhase() async throws {
+    @Test func currentStepIndexAdvancesWithinPhase() throws {
         let steps = (1...3).map { i in makeStep(id: "s\(i)", prompt: "Step \(i)") }
         let workflow = Workflow(name: "W", phases: [makePhase(steps: steps)])
         let session = makeSession()
@@ -978,17 +982,15 @@ struct WorkflowEngineTests {
         engine.start()
         #expect(engine.currentStepIndex == 0)
 
-        try createSignalFile(for: session)
-        try await waitUntil { engine.currentStepIndex == 1 }
+        engine.handleStepCompletion()
         #expect(engine.currentStepIndex == 1)
 
-        try createSignalFile(for: session)
-        try await waitUntil { engine.currentStepIndex == 2 }
+        engine.handleStepCompletion()
         #expect(engine.currentStepIndex == 2)
         cleanup()
     }
 
-    @Test func currentPhaseIndexAdvancesAcrossPhases() async throws {
+    @Test func currentPhaseIndexAdvancesAcrossPhases() throws {
         let workflow = Workflow(name: "W", phases: [
             makePhase(name: "P1", steps: [makeStep(id: "s1", prompt: "A")]),
             makePhase(name: "P2", steps: [makeStep(id: "s2", prompt: "B")]),
@@ -1007,11 +1009,10 @@ struct WorkflowEngineTests {
         engine.start()
         #expect(engine.currentPhaseIndex == 0)
 
-        try createSignalFile(for: session)
-        try await waitUntil { engine.currentPhaseIndex == 1 }
+        engine.handleStepCompletion()
+        #expect(engine.currentPhaseIndex == 1)
 
-        try createSignalFile(for: session)
-        try await waitUntil { engine.currentPhaseIndex == 2 }
+        engine.handleStepCompletion()
         #expect(engine.currentPhaseIndex == 2)
         cleanup()
     }
@@ -1025,7 +1026,7 @@ struct WorkflowEngineTests {
     //
     // Full loop/iterate_tasks block execution is a required engine follow-up.
 
-    @Test func breakStepIsAutoCompletedInLinearExecution() async throws {
+    @Test func breakStepIsAutoCompletedInLinearExecution() throws {
         let step1 = makeStep(id: "s1", prompt: "Work A")
         let step2 = makeStep(id: "s2", prompt: "Work B")
         let breakStep = makeStep(id: "brk", type: .break_, prompt: nil)
@@ -1043,19 +1044,18 @@ struct WorkflowEngineTests {
             signalFilePath: signalFilePath(for: session)
         )
         engine.start()
-        #expect(mock.injectedPrompts.map(promptBody) == ["Work A"])
+        #expect(mock.injectedPrompts == ["Work A"])
 
         // Complete step 1 → break auto-completed → step 2 fires
-        try createSignalFile(for: session)
-        try await waitUntil { mock.injectedPrompts.count >= 2 }
-        #expect(mock.injectedPrompts.map(promptBody) == ["Work A", "Work B"])
+        engine.handleStepCompletion()
+        #expect(mock.injectedPrompts == ["Work A", "Work B"])
         #expect(engine.completedStepIDs.contains("brk"))
 
         engine.stop()
         cleanup()
     }
 
-    @Test func breakWithNoSkipWhenFiresImmediatelyInLoop() async throws {
+    @Test func breakWithNoSkipWhenFiresImmediatelyInLoop() throws {
         let step1 = makeStep(id: "s1", prompt: "Once")
         let breakStep = makeStep(id: "brk", type: .break_, prompt: nil)
         let workflow = Workflow(name: "W", phases: [
@@ -1074,14 +1074,14 @@ struct WorkflowEngineTests {
         engine.start()
 
         // Complete step 1 → break has no skip_when → fires immediately → loop exits
-        try createSignalFile(for: session)
-        try await waitUntil { engine.executionState == .completed }
+        engine.handleStepCompletion()
 
-        #expect(mock.injectedPrompts.map(promptBody) == ["Once"])
+        #expect(mock.injectedPrompts == ["Once"])
+        #expect(engine.executionState == .completed)
         cleanup()
     }
 
-    @Test func loopExitsAndAdvancesToNextPhase() async throws {
+    @Test func loopExitsAndAdvancesToNextPhase() throws {
         let loopStep = makeStep(id: "ls1", prompt: "In loop")
         let breakStep = makeStep(id: "brk", type: .break_, prompt: nil)
         let afterStep = makeStep(id: "ns1", prompt: "After loop")
@@ -1100,18 +1100,17 @@ struct WorkflowEngineTests {
             signalFilePath: signalFilePath(for: session)
         )
         engine.start()
-        #expect(mock.injectedPrompts.map(promptBody) == ["In loop"])
+        #expect(mock.injectedPrompts == ["In loop"])
 
         // Complete loop step → break fires (no skip_when) → advance to next phase
-        try createSignalFile(for: session)
-        try await waitUntil { mock.injectedPrompts.count >= 2 }
+        engine.handleStepCompletion()
 
-        #expect(mock.injectedPrompts.map(promptBody) == ["In loop", "After loop"])
+        #expect(mock.injectedPrompts == ["In loop", "After loop"])
         #expect(engine.currentPhaseIndex == 1)
         cleanup()
     }
 
-    @Test func linearExecutionCompletesAfterBreakStep() async throws {
+    @Test func linearExecutionCompletesAfterBreakStep() throws {
         let step1 = makeStep(id: "s1", prompt: "Work")
         let breakStep = makeStep(id: "brk", type: .break_, prompt: nil)
         let workflow = Workflow(name: "W", phases: [
@@ -1128,18 +1127,17 @@ struct WorkflowEngineTests {
             signalFilePath: signalFilePath(for: session)
         )
         engine.start()
-        #expect(mock.injectedPrompts.map(promptBody) == ["Work"])
+        #expect(mock.injectedPrompts == ["Work"])
 
         // Complete step 1 → break auto-completed → workflow completes (linear)
-        try createSignalFile(for: session)
-        try await waitUntil { engine.executionState == .completed }
+        engine.handleStepCompletion()
 
         #expect(engine.executionState == .completed)
-        #expect(mock.injectedPrompts.map(promptBody) == ["Work"])
+        #expect(mock.injectedPrompts == ["Work"])
         cleanup()
     }
 
-    @Test func loopIterationCountStaysZeroInLinearExecution() async throws {
+    @Test func loopIterationCountStaysZeroInLinearExecution() throws {
         let step1 = makeStep(id: "s1", prompt: "Count me")
         let breakStep = makeStep(id: "brk", type: .break_, prompt: nil)
         let workflow = Workflow(name: "W", phases: [
@@ -1160,8 +1158,7 @@ struct WorkflowEngineTests {
         engine.start()
 
         // Complete step 1 → break auto-completed → workflow done (no loops)
-        try createSignalFile(for: session)
-        try await waitUntil { engine.executionState == .completed }
+        engine.handleStepCompletion()
 
         #expect(engine.loopIterationCount == 0)
         cleanup()
@@ -1206,13 +1203,13 @@ struct WorkflowEngineTests {
         engine.start()
 
         // Break auto-completed → next step fires (linear, no phase skip)
-        #expect(mock.injectedPrompts.map(promptBody) == ["Runs after break"])
+        #expect(mock.injectedPrompts == ["Runs after break"])
         #expect(engine.currentPhaseIndex == 0)
         #expect(engine.completedStepIDs.contains("brk"))
         cleanup()
     }
 
-    @Test func breakInMiddleDoesNotSkipInLinearExecution() async throws {
+    @Test func breakInMiddleDoesNotSkipInLinearExecution() throws {
         let step1 = makeStep(id: "s1", prompt: "Before break")
         let breakStep = makeStep(id: "brk", type: .break_, prompt: nil)
         let step2 = makeStep(id: "s2", prompt: "After break")
@@ -1232,15 +1229,14 @@ struct WorkflowEngineTests {
         engine.start()
 
         // Complete step 1 → break auto-completed → step 2 fires (linear, no skip)
-        try createSignalFile(for: session)
-        try await waitUntil { mock.injectedPrompts.count >= 2 }
+        engine.handleStepCompletion()
 
-        #expect(mock.injectedPrompts.map(promptBody) == ["Before break", "After break"])
+        #expect(mock.injectedPrompts == ["Before break", "After break"])
         #expect(engine.completedStepIDs.contains("brk"))
         cleanup()
     }
 
-    @Test func pauseThenBreakInLinearExecution() async throws {
+    @Test func pauseThenBreakInLinearExecution() throws {
         let step1 = makeStep(id: "s1", prompt: "Work")
         let pauseStep = makeStep(id: "pause1", type: .pause, prompt: nil)
         let breakStep = makeStep(id: "brk", type: .break_, prompt: nil)
@@ -1258,16 +1254,14 @@ struct WorkflowEngineTests {
             signalFilePath: signalFilePath(for: session)
         )
         engine.start()
-        #expect(mock.injectedPrompts.map(promptBody) == ["Work"])
+        #expect(mock.injectedPrompts == ["Work"])
 
         // Complete step 1 → hits pause
-        try createSignalFile(for: session)
-        try await waitUntil { engine.executionState == .paused }
+        engine.handleStepCompletion()
         #expect(engine.executionState == .paused)
 
         // Continue → break auto-completed → workflow completes (linear)
         engine.continueExecution()
-        try await waitUntil { engine.executionState == .completed }
 
         #expect(engine.executionState == .completed)
         #expect(engine.completedStepIDs.contains("brk"))
@@ -1294,11 +1288,11 @@ struct WorkflowEngineTests {
         engine.restartCLIAction = { _, _, _ in .success(()) }
         engine.start()
 
-        // Complete step 1 → restart CLI succeeds → break fires → done
-        try createSignalFile(for: session)
+        // Complete step 1 → restart CLI succeeds (async) → break fires → done
+        engine.handleStepCompletion()
         try await waitUntil { engine.executionState == .completed }
 
-        #expect(mock.injectedPrompts.map(promptBody) == ["Work"])
+        #expect(mock.injectedPrompts == ["Work"])
         #expect(engine.completedStepIDs.contains("clr"))
         cleanup()
     }
@@ -1373,7 +1367,7 @@ struct WorkflowEngineTests {
         try? FileManager.default.removeItem(at: signalDir.appendingPathComponent("tasks.json"))
     }
 
-    @Test func phaseWithPromptStepsExecutesLinearlyRegardlessOfTasks() async throws {
+    @Test func phaseWithPromptStepsExecutesLinearlyRegardlessOfTasks() throws {
         let step = makeStep(id: "s1", prompt: "Do task work")
         let workflow = Workflow(name: "W", phases: [
             makePhase(name: "Build", steps: [step])
@@ -1395,18 +1389,16 @@ struct WorkflowEngineTests {
             signalFilePath: signalFilePath(for: session)
         )
         engine.start()
-        #expect(mock.injectedPrompts.map(promptBody) == ["Do task work"])
+        #expect(mock.injectedPrompts == ["Do task work"])
 
-        // Complete step → workflow completes (no iteration)
-        try createSignalFile(for: session)
-        try await waitUntil { engine.executionState == .completed }
+        engine.handleStepCompletion()
 
         #expect(engine.executionState == .completed)
-        #expect(mock.injectedPrompts.map(promptBody) == ["Do task work"])
+        #expect(mock.injectedPrompts == ["Do task work"])
         cleanup()
     }
 
-    @Test func iteratePhaseAdvancesToNextPhaseWhenDone() async throws {
+    @Test func iteratePhaseAdvancesToNextPhaseWhenDone() throws {
         let iterStep = makeStep(id: "is1", prompt: "Iterate work")
         let nextStep = makeStep(id: "ns1", prompt: "After iterate")
         let workflow = Workflow(name: "W", phases: [
@@ -1417,7 +1409,6 @@ struct WorkflowEngineTests {
         let mock = MockAgentEngine()
         mock.engineState = .running
 
-        // Single task, will be marked done after one iteration
         try writeTasksFile([
             TestTask(id: 1, description: "Task 1", passes: false),
         ])
@@ -1429,21 +1420,18 @@ struct WorkflowEngineTests {
             signalFilePath: signalFilePath(for: session)
         )
         engine.start()
-        #expect(mock.injectedPrompts.map(promptBody) == ["Iterate work"])
+        #expect(mock.injectedPrompts == ["Iterate work"])
 
-        // Mark task done, signal step complete → iterate phase ends → next phase fires
-        try writeTasksFile([
-            TestTask(id: 1, description: "Task 1", passes: true),
-        ])
-        try createSignalFile(for: session)
-        try await waitUntil { mock.injectedPrompts.count >= 2 }
+        // Complete step → advance to next phase
+        try writeTasksFile([TestTask(id: 1, description: "Task 1", passes: true)])
+        engine.handleStepCompletion()
 
-        #expect(mock.injectedPrompts.map(promptBody) == ["Iterate work", "After iterate"])
+        #expect(mock.injectedPrompts == ["Iterate work", "After iterate"])
         #expect(engine.currentPhaseIndex == 1)
         cleanup()
     }
 
-    @Test func multipleStepsInPhaseExecuteLinearlyOnce() async throws {
+    @Test func multipleStepsInPhaseExecuteLinearlyOnce() throws {
         let step1 = makeStep(id: "s1", prompt: "Step A")
         let step2 = makeStep(id: "s2", prompt: "Step B")
         let workflow = Workflow(name: "W", phases: [
@@ -1460,23 +1448,18 @@ struct WorkflowEngineTests {
             signalFilePath: signalFilePath(for: session)
         )
         engine.start()
-        #expect(mock.injectedPrompts.map(promptBody) == ["Step A"])
+        #expect(mock.injectedPrompts == ["Step A"])
 
-        // Complete step 1 → step 2 fires
-        try createSignalFile(for: session)
-        try await waitUntil { mock.injectedPrompts.count >= 2 }
-        #expect(mock.injectedPrompts.map(promptBody) == ["Step A", "Step B"])
+        engine.handleStepCompletion()
+        #expect(mock.injectedPrompts == ["Step A", "Step B"])
 
-        // Complete step 2 → workflow completes (no iteration)
-        try createSignalFile(for: session)
-        try await waitUntil { engine.executionState == .completed }
-
+        engine.handleStepCompletion()
         #expect(engine.executionState == .completed)
-        #expect(mock.injectedPrompts.map(promptBody) == ["Step A", "Step B"])
+        #expect(mock.injectedPrompts == ["Step A", "Step B"])
         cleanup()
     }
 
-    @Test func iteratePhaseSingleTaskCompletesAfterOneIteration() async throws {
+    @Test func iteratePhaseSingleTaskCompletesAfterOneIteration() throws {
         let step = makeStep(id: "s1", prompt: "Single task")
         let workflow = Workflow(name: "W", phases: [
             makePhase(name: "Iterate", steps: [step])
@@ -1497,14 +1480,10 @@ struct WorkflowEngineTests {
         )
         engine.start()
 
-        // Mark done and signal
-        try writeTasksFile([
-            TestTask(id: 1, description: "Only task", passes: true),
-        ])
-        try createSignalFile(for: session)
-        try await waitUntil { engine.executionState == .completed }
+        try writeTasksFile([TestTask(id: 1, description: "Only task", passes: true)])
+        engine.handleStepCompletion()
 
-        #expect(mock.injectedPrompts.map(promptBody) == ["Single task"])
+        #expect(mock.injectedPrompts == ["Single task"])
         #expect(engine.executionState == .completed)
         cleanup()
     }
@@ -1536,12 +1515,12 @@ struct WorkflowEngineTests {
         engine.start()
 
         // Phase runs its steps normally (no phase-level iteration skip)
-        #expect(mock.injectedPrompts.map(promptBody) == ["Runs regardless"])
+        #expect(mock.injectedPrompts == ["Runs regardless"])
         #expect(engine.currentPhaseIndex == 0)
         cleanup()
     }
 
-    @Test func iteratePhaseWithPauseBlockHaltsAndResumes() async throws {
+    @Test func iteratePhaseWithPauseBlockHaltsAndResumes() throws {
         let step1 = makeStep(id: "s1", prompt: "Work")
         let pauseStep = makeStep(id: "p1", type: .pause)
         let step2 = makeStep(id: "s2", prompt: "After pause")
@@ -1563,23 +1542,19 @@ struct WorkflowEngineTests {
             signalFilePath: signalFilePath(for: session)
         )
         engine.start()
-        #expect(mock.injectedPrompts.map(promptBody) == ["Work"])
+        #expect(mock.injectedPrompts == ["Work"])
 
         // Complete step 1 → hits pause
-        try createSignalFile(for: session)
-        try await waitUntil { engine.executionState == .paused }
+        engine.handleStepCompletion()
         #expect(engine.executionState == .paused)
 
         // Continue → step 2 fires
         engine.continueExecution()
-        #expect(mock.injectedPrompts.map(promptBody) == ["Work", "After pause"])
+        #expect(mock.injectedPrompts == ["Work", "After pause"])
 
-        // Mark task done, complete step 2 → all done → completed
-        try writeTasksFile([
-            TestTask(id: 1, description: "Task 1", passes: true),
-        ])
-        try createSignalFile(for: session)
-        try await waitUntil { engine.executionState == .completed }
+        // Complete step 2 → all done → completed
+        try writeTasksFile([TestTask(id: 1, description: "Task 1", passes: true)])
+        engine.handleStepCompletion()
 
         #expect(engine.executionState == .completed)
         cleanup()
@@ -1608,20 +1583,17 @@ struct WorkflowEngineTests {
         )
         engine.restartCLIAction = { _, _, _ in .success(()) }
         engine.start()
-        #expect(mock.injectedPrompts.map(promptBody) == ["Work"])
+        #expect(mock.injectedPrompts == ["Work"])
 
-        // Complete step 1 → restart CLI succeeds → step 2 fires
-        try createSignalFile(for: session)
+        // Complete step 1 → restart CLI succeeds (async) → step 2 fires
+        engine.handleStepCompletion()
         try await waitUntil { mock.injectedPrompts.count >= 2 }
-        #expect(mock.injectedPrompts.map(promptBody) == ["Work", "After clear"])
+        #expect(mock.injectedPrompts == ["Work", "After clear"])
         #expect(engine.completedStepIDs.contains("clr"))
 
-        // Mark task done, complete step 2 → all done → completed
-        try writeTasksFile([
-            TestTask(id: 1, description: "Task 1", passes: true),
-        ])
-        try createSignalFile(for: session)
-        try await waitUntil { engine.executionState == .completed }
+        // Complete step 2 → all done → completed
+        try writeTasksFile([TestTask(id: 1, description: "Task 1", passes: true)])
+        engine.handleStepCompletion()
 
         #expect(engine.executionState == .completed)
         cleanup()
@@ -1629,7 +1601,7 @@ struct WorkflowEngineTests {
 
     // -- Validation & Control --
 
-    @Test func completedStepIDsAccumulateInLinearExecution() async throws {
+    @Test func completedStepIDsAccumulateInLinearExecution() throws {
         let step1 = makeStep(id: "s1", prompt: "Step A")
         let step2 = makeStep(id: "s2", prompt: "Step B")
         let workflow = Workflow(name: "W", phases: [
@@ -1648,8 +1620,7 @@ struct WorkflowEngineTests {
         engine.start()
 
         // Complete step 1 → step 2 fires
-        try createSignalFile(for: session)
-        try await waitUntil { mock.injectedPrompts.count >= 2 }
+        engine.handleStepCompletion()
 
         // Step 1 is in completedStepIDs, step 2 is not yet
         #expect(engine.completedStepIDs.contains("s1"))
@@ -1673,14 +1644,6 @@ struct WorkflowEngineTests {
     }
 
     // MARK: - IterateTasks Step Delegation
-
-    final class StubSignalWatcher: SignalWatcher {
-        var onFired: (() -> Void)?
-        private(set) var stopCount = 0
-        func startWatching(signalFilePath: String) {}
-        func stopWatching() { stopCount += 1 }
-        func fire() { onFired?() }
-    }
 
     @Test func iterateTasksStepStartsHeadlessRalphDriver() throws {
         let fakeRunner = FakeProcessRunner()
@@ -1835,28 +1798,6 @@ struct WorkflowEngineTests {
         cleanup()
     }
 
-    // MARK: - Signal Footer Injection
-
-    @Test func promptInjectionIncludesSignalFooter() throws {
-        let session = makeSession()
-        let step = makeStep(id: "s1", prompt: "Do the work")
-        let workflow = Workflow(name: "W", phases: [makePhase(steps: [step])])
-        let mock = MockAgentEngine()
-        mock.engineState = .running
-
-        let engine = WorkflowEngine(
-            session: session,
-            workflow: workflow,
-            engine: mock,
-            signalFilePath: signalFilePath(for: session)
-        )
-        engine.start()
-
-        let injected = try #require(mock.injectedPrompts.first)
-        #expect(injected.contains(signalFilePath(for: session)))
-        cleanup()
-    }
-
     // MARK: - Run From Here (Mid-Run)
 
     @Test func runFromStepDuringExecutionDoesNotTerminateAgent() throws {
@@ -1865,14 +1806,12 @@ struct WorkflowEngineTests {
         let session = makeSession()
         let mock = MockAgentEngine()
         mock.engineState = .running
-        let watcher = StubSignalWatcher()
 
         let engine = WorkflowEngine(
             session: session,
             workflow: workflow,
             engineResolver: { _ in mock },
-            signalFilePath: signalFilePath(for: session),
-            signalWatcher: watcher
+            signalFilePath: signalFilePath(for: session)
         )
         engine.start()
         #expect(engine.executionState == .executing)
@@ -1889,14 +1828,12 @@ struct WorkflowEngineTests {
         let session = makeSession()
         let mock = MockAgentEngine()
         mock.engineState = .running
-        let watcher = StubSignalWatcher()
 
         let engine = WorkflowEngine(
             session: session,
             workflow: workflow,
             engineResolver: { _ in mock },
-            signalFilePath: signalFilePath(for: session),
-            signalWatcher: watcher
+            signalFilePath: signalFilePath(for: session)
         )
         engine.start()
         #expect(engine.executionState == .executing)
@@ -1905,7 +1842,7 @@ struct WorkflowEngineTests {
         engine.runFromStep(phaseIndex: 0, stepIndex: 0)
 
         #expect(mock.injectedPrompts.count == 2)
-        #expect(mock.injectedPrompts.map(promptBody).allSatisfy { $0 == "Step 1" })
+        #expect(mock.injectedPrompts.allSatisfy { $0 == "Step 1" })
         cleanup()
     }
 
@@ -1918,14 +1855,12 @@ struct WorkflowEngineTests {
         session.completedStepIDs = ["s1"]
         let mock = MockAgentEngine()
         mock.engineState = .running
-        let watcher = StubSignalWatcher()
 
         let engine = WorkflowEngine(
             session: session,
             workflow: workflow,
             engineResolver: { _ in mock },
-            signalFilePath: signalFilePath(for: session),
-            signalWatcher: watcher
+            signalFilePath: signalFilePath(for: session)
         )
         engine.start()
         #expect(engine.executionState == .executing)
@@ -1937,32 +1872,6 @@ struct WorkflowEngineTests {
         #expect(!engine.completedStepIDs.contains("s3"))
         #expect(engine.currentPhaseIndex == 0)
         #expect(engine.currentStepIndex == 0)
-        cleanup()
-    }
-
-    @Test func runFromStepDuringExecutionCancelsInFlightWatcher() throws {
-        let step = makeStep(id: "s1", prompt: "Work")
-        let workflow = Workflow(name: "W", phases: [makePhase(steps: [step])])
-        let session = makeSession()
-        let mock = MockAgentEngine()
-        mock.engineState = .running
-        let watcher = StubSignalWatcher()
-
-        let engine = WorkflowEngine(
-            session: session,
-            workflow: workflow,
-            engineResolver: { _ in mock },
-            signalFilePath: signalFilePath(for: session),
-            signalWatcher: watcher
-        )
-        engine.start()
-        #expect(engine.executionState == .executing)
-        let stopCountBeforeRunFromStep = watcher.stopCount
-
-        engine.runFromStep(phaseIndex: 0, stepIndex: 0)
-
-        // explicit cancelWatcher() + dispatch()'s internal cancelWatcher() = 2 more stops
-        #expect(watcher.stopCount > stopCountBeforeRunFromStep)
         cleanup()
     }
 

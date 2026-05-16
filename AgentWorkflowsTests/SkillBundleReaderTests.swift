@@ -29,7 +29,7 @@ struct SkillBundleReaderTests {
 
         let manifestURL = try writeManifest([
             makeManifestEntry(name: "ralph", sha256: "aaa"),
-            makeManifestEntry(name: "grill-me", sha256: "bbb", priorSha256s: ["old"]),
+            makeManifestEntry(name: "grill-with-docs", sha256: "bbb", priorSha256s: ["old"]),
         ], to: root)
         let skillsBase = root.appendingPathComponent("Skills", isDirectory: true)
 
@@ -37,13 +37,29 @@ struct SkillBundleReaderTests {
 
         #expect(contents.manifest.count == 2)
         #expect(contents.manifest[0] == SkillManifestEntry(name: "ralph", sha256: "aaa", priorSha256s: []))
-        #expect(contents.manifest[1] == SkillManifestEntry(name: "grill-me", sha256: "bbb", priorSha256s: ["old"]))
+        #expect(contents.manifest[1] == SkillManifestEntry(name: "grill-with-docs", sha256: "bbb", priorSha256s: ["old"]))
 
         #expect(contents.skills.count == 2)
         #expect(contents.skills[0].name == "ralph")
         #expect(contents.skills[0].fileURL == skillsBase.appendingPathComponent("ralph/SKILL.md"))
-        #expect(contents.skills[1].name == "grill-me")
-        #expect(contents.skills[1].fileURL == skillsBase.appendingPathComponent("grill-me/SKILL.md"))
+        #expect(contents.skills[1].name == "grill-with-docs")
+        #expect(contents.skills[1].fileURL == skillsBase.appendingPathComponent("grill-with-docs/SKILL.md"))
+    }
+
+    @Test func bundleContentsCanMatchRequiredSkillsExactly() throws {
+        let root = try makeTempDir()
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        let manifestURL = try writeManifest(
+            PresenceChecker.requiredSkills.map { makeManifestEntry(name: $0) },
+            to: root
+        )
+        let skillsBase = root.appendingPathComponent("Skills", isDirectory: true)
+
+        let contents = try SkillBundleReader.read(manifestURL: manifestURL, skillsBaseURL: skillsBase)
+
+        #expect(contents.manifest.map(\.name) == PresenceChecker.requiredSkills)
+        #expect(contents.skills.map(\.name) == PresenceChecker.requiredSkills)
     }
 
     @Test func throwsManifestNotFoundWhenFileAbsent() {

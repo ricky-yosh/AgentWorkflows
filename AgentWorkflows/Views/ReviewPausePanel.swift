@@ -27,7 +27,6 @@ struct ReviewPausePanel: View {
             ]
         case "verify-review":
             return [
-                ReviewArtifact(id: "progress", label: "Progress Log", filename: "progress.txt"),
                 ReviewArtifact(id: "qa", label: "QA output", filename: "tasks.json"),
             ]
         default:

@@ -15,5 +15,18 @@ struct SessionCardView: View {
                 workflow: .ralph
             )
         }
+        .onAppear { primeTaskCounts() }
+    }
+
+    private func primeTaskCounts() {
+        let dir = SessionDirectoryLayout.sessionDirectory(
+            workingDirectory: URL(fileURLWithPath: session.workingDirectory),
+            sessionID: session.id
+        )
+        let passes = WorkflowEngine.readPasses(progressDir: dir.path)
+        guard !passes.isEmpty else { return }
+        let status = engineManager.runStatus(for: session.id)
+        status.tasksPassed = passes.filter { $0 }.count
+        status.tasksTotal = passes.count
     }
 }

@@ -24,12 +24,16 @@ extension Notification.Name {
     static let awToggleInspector = Notification.Name("AWToggleInspector")
     static let awCycleSessionForward = Notification.Name("AWCycleSessionForward")
     static let awCycleSessionBackward = Notification.Name("AWCycleSessionBackward")
+    static let awSessionTogglePlayback = Notification.Name("AWSessionTogglePlayback")
     static let awSessionOpenInFinder = Notification.Name("AWSessionOpenInFinder")
     static let awSessionOpenInEditor = Notification.Name("AWSessionOpenInEditor")
     static let awSessionOpenInTerminal = Notification.Name("AWSessionOpenInTerminal")
     static let awSessionOpenInDiffViewer = Notification.Name("AWSessionOpenInDiffViewer")
+    static let awSessionCopyPath = Notification.Name("AWSessionCopyPath")
+    static let awSessionCopyCachePath = Notification.Name("AWSessionCopyCachePath")
     static let awSessionRename = Notification.Name("AWSessionRename")
     static let awSessionDelete = Notification.Name("AWSessionDelete")
+    static let awSessionMarkStepComplete = Notification.Name("AWSessionMarkStepComplete")
 }
 
 struct IsSessionSelectedKey: FocusedValueKey {
@@ -121,7 +125,7 @@ struct ContentView: View {
             )
         }
         .onAppear { updatePerRepoURL(for: storedItem) }
-        .onChange(of: settingsStore.settings.allSkillsDirectories) { _, _ in
+        .onChange(of: settingsStore.settings.allSkillTargets) { _, _ in
             evaluatePresence()
         }
         .onChange(of: storedItem) { oldValue, newValue in
@@ -227,7 +231,7 @@ struct ContentView: View {
     private func evaluatePresence() {
         let home = FileManager.default.homeDirectoryForCurrentUser
         presenceReport = PresenceChecker.check(
-            skillsDirectories: settingsStore.settings.allSkillsDirectories,
+            skillTargets: settingsStore.settings.allSkillTargets,
             globalSettingsPath: home.appendingPathComponent(".claude/settings.json"),
             projectSettingsPath: nil
         )
@@ -249,11 +253,12 @@ struct ContentView: View {
         guard let bundle = try? SkillBundleReader.read() else { return }
         var allResults: [SkillInstallExecutor.OpResult] = []
         var allBlocked: [SkillInstaller.BlockedOp] = []
-        for dir in settingsStore.settings.allSkillsDirectories {
+        for target in selectedSkillTargets() {
+            let dir = target.directory
             let inputs = PresenceBanner.installInputsForMissing(report: report, directory: dir, bundledSkills: bundle.skills)
             guard !inputs.isEmpty else { continue }
             let plan = SkillInstaller.plan(skills: inputs, intent: .firstRun)
-            let results = SkillInstallExecutor.execute(plan: plan, skillsDirectory: dir)
+            let results = SkillInstallExecutor.execute(plan: plan, skillsDirectory: dir, target: target)
             allResults.append(contentsOf: results)
             allBlocked.append(contentsOf: plan.blocked)
         }
@@ -269,6 +274,20 @@ struct ContentView: View {
         evaluatePresence()
         guard let report = presenceReport else { return }
         installMissingSkills(report: report)
+    }
+
+    private func selectedSkillTargets() -> [SkillTarget] {
+        let targets: [SkillTarget?] = [
+            settingsStore.settings.sidebarTitleProvider.cliPreset?.skillTarget,
+            settingsStore.settings.planCLI.skillTarget,
+            settingsStore.settings.verifyCLI.skillTarget,
+            settingsStore.settings.buildCLI.skillTarget,
+        ]
+
+        var seen = Set<String>()
+        return targets
+            .compactMap { $0 }
+            .filter { seen.insert($0.rawValue).inserted }
     }
 
     private var navigationTitle: String {

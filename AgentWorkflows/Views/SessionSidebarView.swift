@@ -42,7 +42,7 @@ struct SessionSidebarView: View {
                                     Button("Open in Finder") {
                                         openInFinder(session: session)
                                     }
-                                    .keyboardShortcut("r", modifiers: [.command, .shift])
+                                    .keyboardShortcut("f", modifiers: [.command, .shift])
                                     Button("Open in Editor") {
                                         openInEditor(session: session)
                                     }
@@ -55,6 +55,16 @@ struct SessionSidebarView: View {
                                         openInDiffViewer(session: session)
                                     }
                                     .keyboardShortcut("d", modifiers: [.command, .shift])
+                                    Divider()
+                                    Button("Copy Session Path") {
+                                        copySessionPath(session: session)
+                                    }
+                                    .keyboardShortcut("c", modifiers: [.command, .shift])
+                                    Button("Copy Cache Path") {
+                                        copyCachePath(session: session)
+                                    }
+                                    .keyboardShortcut("c", modifiers: [.command, .option, .shift])
+                                    Divider()
                                     Button("Rename…") {
                                         sessionToRename = session
                                     }
@@ -196,6 +206,12 @@ struct SessionSidebarView: View {
         .onReceive(NotificationCenter.default.publisher(for: .awSessionOpenInDiffViewer)) { _ in
             if let session = selectedSession { openInDiffViewer(session: session) }
         }
+        .onReceive(NotificationCenter.default.publisher(for: .awSessionCopyPath)) { _ in
+            if let session = selectedSession { copySessionPath(session: session) }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .awSessionCopyCachePath)) { _ in
+            if let session = selectedSession { copyCachePath(session: session) }
+        }
         .onReceive(NotificationCenter.default.publisher(for: .awSessionRename)) { _ in
             if let session = selectedSession, inlineRenamingID == nil {
                 startInlineRename(session: session)
@@ -213,6 +229,9 @@ struct SessionSidebarView: View {
             if newSelection != .session(renamingID) {
                 commitInlineRename()
             }
+        }
+        .onChange(of: inlineRenameFocused) { _, focused in
+            if !focused { commitInlineRename() }
         }
     }
 
@@ -272,6 +291,24 @@ struct SessionSidebarView: View {
             sessionID: session.id
         )
         NSWorkspace.shared.activateFileViewerSelecting([sessionDir])
+    }
+
+    private func copySessionPath(session: Session) {
+        let sessionDir = SessionDirectoryLayout.sessionDirectory(
+            workingDirectory: URL(fileURLWithPath: session.workingDirectory),
+            sessionID: session.id
+        )
+        copyToPasteboard(sessionDir.path)
+    }
+
+    private func copyCachePath(session: Session) {
+        copyToPasteboard(".aw-cache/\(session.id.uuidString)")
+    }
+
+    private func copyToPasteboard(_ value: String) {
+        let pasteboard = NSPasteboard.general
+        pasteboard.clearContents()
+        pasteboard.setString(value, forType: .string)
     }
 
     private struct DirectoryGroup {
