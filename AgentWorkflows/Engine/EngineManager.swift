@@ -81,8 +81,8 @@ final class EngineManager {
         engines[sessionID, default: [:]][tool] = engine
         if toolOrder[sessionID] == nil {
             toolOrder[sessionID] = [tool]
-        } else if !toolOrder[sessionID]!.contains(tool) {
-            toolOrder[sessionID]!.append(tool)
+        } else if toolOrder[sessionID]?.contains(tool) == false {
+            toolOrder[sessionID]?.append(tool)
         }
         return engine
     }
