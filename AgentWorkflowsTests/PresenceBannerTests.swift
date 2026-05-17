@@ -26,7 +26,7 @@ struct PresenceBannerTests {
         #expect(PresenceBanner.hasMissing(r))
         #expect(rows.map { $0.id.hasPrefix("skill.ralph") }.contains(true))
         #expect(rows.map { $0.id.hasPrefix("skill.qa") }.contains(true))
-        // ralph (index 4) comes before qa (index 5) in requiredSkills order
+        // ralph (index 3) comes before qa (index 4) in requiredSkills order
         let names = rows.compactMap { row -> String? in
             guard row.id.hasPrefix("skill.") else { return nil }
             return String(row.id.dropFirst("skill.".count).prefix(while: { $0 != "." }))

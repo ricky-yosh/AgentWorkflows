@@ -48,7 +48,7 @@ struct IterationCardView: View {
     @ViewBuilder
     private var header: some View {
         HStack(spacing: 8) {
-            Text(record.taskID.map { "Task \($0)" } ?? "Iter \(record.id)")
+            Text("Iter \(record.id)")
                 .font(.caption)
                 .fontWeight(.semibold)
                 .monospacedDigit()
@@ -56,6 +56,13 @@ struct IterationCardView: View {
                 .padding(.horizontal, 6)
                 .padding(.vertical, 2)
                 .background(.fill.secondary, in: Capsule())
+
+            if let taskID = record.taskID {
+                Text("#\(taskID)")
+                    .font(.caption)
+                    .fontWeight(.medium)
+                    .foregroundStyle(.secondary)
+            }
 
             if let desc = record.taskDescription {
                 Text(desc)
@@ -151,7 +158,7 @@ struct IterationCardView: View {
         } else {
             ScrollViewReader { proxy in
                 ScrollView {
-                    LazyVStack(alignment: .leading, spacing: 6) {
+                    VStack(alignment: .leading, spacing: 6) {
                         ForEach(0..<visibleEvents.count, id: \.self) { i in
                             EventLineView(event: visibleEvents[i])
                         }
@@ -196,7 +203,7 @@ private struct EventLineView: View {
     var body: some View {
         switch event {
         case .assistantText(let text):
-            LineChunkedTextView(text)
+            Text(text)
                 .font(.system(.callout, design: .monospaced))
                 .foregroundStyle(.primary)
                 .textSelection(.enabled)

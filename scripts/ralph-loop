@@ -57,29 +57,10 @@ mkdir -p "$LOG_DIR"
 count_total()  { jq 'length' "$TASKS_FILE"; }
 count_passed() { jq '[.[] | select(.passes == true)] | length' "$TASKS_FILE"; }
 
-# Returns the number of incomplete tasks that have all blockers satisfied.
-count_runnable() {
-    jq '. as $all |
-        [ .[] | select(.passes == false) |
-          select(
-            ((.blocked_by // []) | all(. as $bid |
-              ($all | map(select(.id == $bid)) | .[0].passes // false)
-            ))
-          )
-        ] | length
-    ' "$TASKS_FILE"
-}
-
 next_task_line() {
-    jq -r '. as $all |
-        ([ .[] | select(.passes == false) |
-           select(
-             ((.blocked_by // []) | all(. as $bid |
-               ($all | map(select(.id == $bid)) | .[0].passes // false)
-             ))
-           )
-         ] | first // null)
-        // {id: null, description: null, category: null, effort: null}
+    jq -r '
+        (map(select(.passes == false))[0]
+            // {id: null, description: null, category: null, effort: null})
         | if .id == null then "—" else
             "#\(.id)  [\(.category)/\(.effort)]  \(.description)"
           end
@@ -182,28 +163,6 @@ while [[ $iter -lt $MAX_ITER ]]; do
 
     render_header "$iter" "$passed" "$total"
 
-    # Exit cleanly if all remaining tasks are blocked — don't burn stall budget.
-    runnable=$(count_runnable)
-    if [[ "$runnable" -eq 0 ]]; then
-        printf "\n${BOLD}${YELLOW}╭─────────────────────────────────────────────${RESET}\n"
-        printf "${BOLD}${YELLOW}│${RESET}  ${BOLD}⚠ All remaining tasks are blocked${RESET}\n"
-        printf "${BOLD}${YELLOW}│${RESET}  ${DIM}%d/%d passed · resolve a blocker to continue${RESET}\n" "$passed" "$total"
-        jq -r '. as $all |
-            .[] | select(.passes == false) |
-            . as $t |
-            "  #\(.id): blocked by " +
-            ((.blocked_by // []) |
-              map(. as $bid |
-                ($all | map(select(.id == $bid)) | .[0] |
-                  if .passes then empty else "#\($bid)" end)
-              ) | join(", "))
-        ' "$TASKS_FILE" | while read -r line; do
-            printf "${BOLD}${YELLOW}│${RESET}  ${DIM}%s${RESET}\n" "$line"
-        done
-        printf "${BOLD}${YELLOW}╰─────────────────────────────────────────────${RESET}\n\n"
-        exit 4
-    fi
-
     log_file="$LOG_DIR/iter-$iter.log"
     snapshot_before=$(passes_snapshot)
 
@@ -255,16 +214,6 @@ while [[ $iter -lt $MAX_ITER ]]; do
     fi
 
     printf "${GREY}──────────────────────── end stream ──────────────────────${RESET}\n"
-
-    # Detect API-level errors (e.g. rate limits) that arrive as stream events, not non-zero exits.
-    api_error=$(grep -o '"type":"error"' "$log_file" | head -1)
-    if [[ -n "$api_error" ]]; then
-        error_msg=$(grep '"type":"error"' "$log_file" | head -1 | grep -o '"message":"[^"]*"' | sed 's/"message":"//;s/"$//')
-        printf "\n${RED}✗ Claude API error — stopping loop${RESET}\n"
-        printf "${DIM}  %s${RESET}\n" "${error_msg:-see $log_file}"
-        printf "${DIM}  full log: %s${RESET}\n\n" "$log_file"
-        exit 5
-    fi
 
     # stall detection — did this iteration flip any task's passes flag?
     snapshot_after=$(passes_snapshot)

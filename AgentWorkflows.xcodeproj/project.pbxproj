@@ -8,8 +8,6 @@
 
 /* Begin PBXBuildFile section */
 		90B232412F888C3E00D1B1D4 /* SwiftTerm in Frameworks */ = {isa = PBXBuildFile; productRef = 906E9F1C2F87A000009DC834 /* SwiftTerm */; };
-		90B232422F888C3E00D1B1D4 /* SwiftSyntax in Frameworks */ = {isa = PBXBuildFile; productRef = 906E9F1F2F87A000009DC834 /* SwiftSyntax */; };
-		90B232432F888C3E00D1B1D4 /* SwiftParser in Frameworks */ = {isa = PBXBuildFile; productRef = 906E9F202F87A000009DC834 /* SwiftParser */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -39,7 +37,6 @@
 		9014FC042F900000009DC834 /* Exceptions for "AgentWorkflows" folder in "AgentWorkflows" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
-				"Resources/Skills/excavation-agent/SKILL.md",
 				"Resources/Skills/grill-me/SKILL.md",
 				Resources/Skills/qa/SKILL.md,
 				Resources/Skills/ralph/SKILL.md,
@@ -72,8 +69,6 @@
 			buildActionMask = 2147483647;
 			files = (
 				90B232412F888C3E00D1B1D4 /* SwiftTerm in Frameworks */,
-				90B232422F888C3E00D1B1D4 /* SwiftSyntax in Frameworks */,
-				90B232432F888C3E00D1B1D4 /* SwiftParser in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -135,8 +130,6 @@
 			name = AgentWorkflows;
 			packageProductDependencies = (
 				906E9F1C2F87A000009DC834 /* SwiftTerm */,
-				906E9F1F2F87A000009DC834 /* SwiftSyntax */,
-				906E9F202F87A000009DC834 /* SwiftParser */,
 			);
 			productName = AgentWorkflows;
 			productReference = 906E9EEE2F86C12E009DC834 /* AgentWorkflows.app */;
@@ -219,7 +212,6 @@
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
 				906E9F1A2F87A000009DC834 /* XCRemoteSwiftPackageReference "SwiftTerm" */,
-				906E9F1D2F87A000009DC834 /* XCRemoteSwiftPackageReference "swift-syntax" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 906E9EEF2F86C12E009DC834 /* Products */;
@@ -266,7 +258,6 @@
 			inputPaths = (
 				"$(SRCROOT)/scripts/generate-skills-manifest.sh",
 				"$(SRCROOT)/AgentWorkflows/Engine/PresenceChecker.swift",
-				"$(SRCROOT)/AgentWorkflows/Resources/Skills/excavation-agent/SKILL.md",
 				"$(SRCROOT)/AgentWorkflows/Resources/Skills/ralph/SKILL.md",
 				"$(SRCROOT)/AgentWorkflows/Resources/Skills/grill-me/SKILL.md",
 				"$(SRCROOT)/AgentWorkflows/Resources/Skills/grill-with-docs/SKILL.md",
@@ -277,7 +268,6 @@
 			name = "Generate Skills Manifest";
 			outputPaths = (
 				"$(BUILT_PRODUCTS_DIR)/$(UNLOCALIZED_RESOURCES_FOLDER_PATH)/skills-manifest.json",
-				"$(BUILT_PRODUCTS_DIR)/$(UNLOCALIZED_RESOURCES_FOLDER_PATH)/Skills/excavation-agent/SKILL.md",
 				"$(BUILT_PRODUCTS_DIR)/$(UNLOCALIZED_RESOURCES_FOLDER_PATH)/Skills/ralph/SKILL.md",
 				"$(BUILT_PRODUCTS_DIR)/$(UNLOCALIZED_RESOURCES_FOLDER_PATH)/Skills/grill-me/SKILL.md",
 				"$(BUILT_PRODUCTS_DIR)/$(UNLOCALIZED_RESOURCES_FOLDER_PATH)/Skills/grill-with-docs/SKILL.md",
@@ -647,14 +637,6 @@
 				minimumVersion = 1.2.0;
 			};
 		};
-		906E9F1D2F87A000009DC834 /* XCRemoteSwiftPackageReference "swift-syntax" */ = {
-			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "https://github.com/swiftlang/swift-syntax.git";
-			requirement = {
-				kind = upToNextMajorVersion;
-				minimumVersion = 603.0.0;
-			};
-		};
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
@@ -662,16 +644,6 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 906E9F1A2F87A000009DC834 /* XCRemoteSwiftPackageReference "SwiftTerm" */;
 			productName = SwiftTerm;
-		};
-		906E9F1F2F87A000009DC834 /* SwiftSyntax */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = 906E9F1D2F87A000009DC834 /* XCRemoteSwiftPackageReference "swift-syntax" */;
-			productName = SwiftSyntax;
-		};
-		906E9F202F87A000009DC834 /* SwiftParser */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = 906E9F1D2F87A000009DC834 /* XCRemoteSwiftPackageReference "swift-syntax" */;
-			productName = SwiftParser;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

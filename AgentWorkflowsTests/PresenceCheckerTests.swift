@@ -35,7 +35,7 @@ struct PresenceCheckerTests {
 
     @Test func requiredSkillsListIsExactlyTheCurrentSet() {
         #expect(PresenceChecker.requiredSkills == [
-            "excavation-agent", "grill-with-docs", "to-prd",
+            "grill-with-docs", "to-prd",
             "to-tasks", "ralph", "qa",
         ])
     }
@@ -83,7 +83,6 @@ struct PresenceCheckerTests {
         defer { try? FileManager.default.removeItem(at: root) }
 
         let skills = root.appendingPathComponent("skills", isDirectory: true)
-        try installSkill("excavation-agent", in: skills)
         try installSkill("ralph", in: skills)
         try installSkill("qa", in: skills)
         try installSkill("to-prd", in: skills)
@@ -97,7 +96,6 @@ struct PresenceCheckerTests {
         #expect(!report.missingSkills.contains("ralph"))
         #expect(!report.missingSkills.contains("qa"))
         #expect(!report.missingSkills.contains("to-prd"))
-        #expect(!report.missingSkills.contains("excavation-agent"))
         #expect(report.missingSkills.contains("grill-with-docs"))
         #expect(report.missingSkills.contains("to-tasks"))
         #expect(report.missingSkills == ["grill-with-docs", "to-tasks"])

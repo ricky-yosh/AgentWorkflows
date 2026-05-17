@@ -69,7 +69,7 @@ nonisolated enum CLIPreset: String, CaseIterable, Codable, Identifiable {
         case .codex:
             return InvocationRecipe(
                 binaryName: "codex",
-                terminalArgs: []
+                terminalArgs: ["--full-auto"]
             )
         case .pi:
             return InvocationRecipe(binaryName: "pi")
@@ -189,7 +189,6 @@ nonisolated struct Settings: Equatable, Codable {
     var planCLI: CLIPreset
     var verifyCLI: CLIPreset
     var buildCLI: CLIPreset
-    var excavationCLI: CLIPreset
 
     var sidebarTitleCLI: CLIPreset {
         get { sidebarTitleProvider.cliPreset ?? .claude }
@@ -201,22 +200,19 @@ nonisolated struct Settings: Equatable, Codable {
         sidebarTitleCLI: CLIPreset? = nil,
         planCLI: CLIPreset,
         verifyCLI: CLIPreset,
-        buildCLI: CLIPreset,
-        excavationCLI: CLIPreset? = nil
+        buildCLI: CLIPreset
     ) {
         self.sidebarTitleProvider = sidebarTitleProvider ?? sidebarTitleCLI.map(SidebarTitleProvider.cli) ?? .claude
         self.planCLI = planCLI
         self.verifyCLI = verifyCLI
         self.buildCLI = buildCLI
-        self.excavationCLI = excavationCLI ?? .claude
     }
 
     static let `default` = Settings(
         sidebarTitleProvider: .claude,
         planCLI: .claude,
         verifyCLI: .claude,
-        buildCLI: .claude,
-        excavationCLI: .claude
+        buildCLI: .claude
     )
 
     /// Deduplicated list of skill directories across all configured CLI phases.
@@ -227,7 +223,7 @@ nonisolated struct Settings: Equatable, Codable {
     /// Deduplicated list of skill targets across all configured CLI phases.
     var allSkillTargets: [SkillTarget] {
         var seen = Set<String>()
-        return [sidebarTitleProvider.cliPreset, planCLI, verifyCLI, buildCLI, excavationCLI]
+        return [sidebarTitleProvider.cliPreset, planCLI, verifyCLI, buildCLI]
             .compactMap { $0?.skillTarget }
             .filter { seen.insert($0.rawValue).inserted }
     }
@@ -235,7 +231,7 @@ nonisolated struct Settings: Equatable, Codable {
 
 nonisolated extension Settings {
     enum CodingKeys: String, CodingKey {
-        case sidebarTitleProvider, sidebarTitleCLI, planCLI, verifyCLI, buildCLI, excavationCLI
+        case sidebarTitleProvider, sidebarTitleCLI, planCLI, verifyCLI, buildCLI
     }
 
     init(from decoder: Decoder) throws {
@@ -247,8 +243,7 @@ nonisolated extension Settings {
             sidebarTitleCLI: legacyCLI,
             planCLI: try container.decode(CLIPreset.self, forKey: .planCLI),
             verifyCLI: try container.decode(CLIPreset.self, forKey: .verifyCLI),
-            buildCLI: try container.decode(CLIPreset.self, forKey: .buildCLI),
-            excavationCLI: try container.decodeIfPresent(CLIPreset.self, forKey: .excavationCLI)
+            buildCLI: try container.decode(CLIPreset.self, forKey: .buildCLI)
         )
     }
 
@@ -258,7 +253,6 @@ nonisolated extension Settings {
         try container.encode(planCLI, forKey: .planCLI)
         try container.encode(verifyCLI, forKey: .verifyCLI)
         try container.encode(buildCLI, forKey: .buildCLI)
-        try container.encode(excavationCLI, forKey: .excavationCLI)
     }
 }
 
@@ -272,7 +266,6 @@ nonisolated struct PerRepoSettings: Equatable {
     var planCLI: CLIPreset?
     var verifyCLI: CLIPreset?
     var buildCLI: CLIPreset?
-    var excavationCLI: CLIPreset?
 
     var sidebarTitleCLI: CLIPreset? {
         get { sidebarTitleProvider?.cliPreset }
@@ -284,14 +277,12 @@ nonisolated struct PerRepoSettings: Equatable {
         sidebarTitleCLI: CLIPreset? = nil,
         planCLI: CLIPreset? = nil,
         verifyCLI: CLIPreset? = nil,
-        buildCLI: CLIPreset? = nil,
-        excavationCLI: CLIPreset? = nil
+        buildCLI: CLIPreset? = nil
     ) {
         self.sidebarTitleProvider = sidebarTitleProvider ?? sidebarTitleCLI.map(SidebarTitleProvider.cli)
         self.planCLI = planCLI
         self.verifyCLI = verifyCLI
         self.buildCLI = buildCLI
-        self.excavationCLI = excavationCLI
     }
 
     static let empty = PerRepoSettings()
@@ -302,15 +293,14 @@ nonisolated struct PerRepoSettings: Equatable {
             sidebarTitleProvider: sidebarTitleProvider ?? base.sidebarTitleProvider,
             planCLI: planCLI ?? base.planCLI,
             verifyCLI: verifyCLI ?? base.verifyCLI,
-            buildCLI: buildCLI ?? base.buildCLI,
-            excavationCLI: excavationCLI ?? base.excavationCLI
+            buildCLI: buildCLI ?? base.buildCLI
         )
     }
 }
 
 nonisolated extension PerRepoSettings: Codable {
     enum CodingKeys: String, CodingKey {
-        case sidebarTitleProvider, sidebarTitleCLI, planCLI, verifyCLI, buildCLI, excavationCLI
+        case sidebarTitleProvider, sidebarTitleCLI, planCLI, verifyCLI, buildCLI
     }
 
     func encode(to encoder: Encoder) throws {
@@ -319,7 +309,6 @@ nonisolated extension PerRepoSettings: Codable {
         if let v = planCLI { try container.encode(v, forKey: .planCLI) }
         if let v = verifyCLI { try container.encode(v, forKey: .verifyCLI) }
         if let v = buildCLI { try container.encode(v, forKey: .buildCLI) }
-        if let v = excavationCLI { try container.encode(v, forKey: .excavationCLI) }
     }
 
     init(from decoder: Decoder) throws {
@@ -330,6 +319,5 @@ nonisolated extension PerRepoSettings: Codable {
         planCLI = try container.decodeIfPresent(CLIPreset.self, forKey: .planCLI)
         verifyCLI = try container.decodeIfPresent(CLIPreset.self, forKey: .verifyCLI)
         buildCLI = try container.decodeIfPresent(CLIPreset.self, forKey: .buildCLI)
-        excavationCLI = try container.decodeIfPresent(CLIPreset.self, forKey: .excavationCLI)
     }
 }

@@ -14,7 +14,6 @@ enum PresenceChecker {
     /// The Skills Ralph needs; adding another is a Swift code change
     /// (see PRD "Further Notes"). Order is the display order in the banner.
     static let requiredSkills: [String] = [
-        "excavation-agent",
         "grill-with-docs",
         "to-prd",
         "to-tasks",

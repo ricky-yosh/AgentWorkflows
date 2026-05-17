@@ -112,7 +112,6 @@ struct AgentWorkflowsApp: App {
     @State private var engineManager: EngineManager
     @State private var windowManager = WindowManager()
     @State private var settingsStore = SettingsStore()
-    @State private var sessionTabState = SessionTabState()
 
     init() {
         // Disable AppKit's automatic window tabbing. Without this, AppKit
@@ -154,7 +153,6 @@ struct AgentWorkflowsApp: App {
                 .environment(engineManager)
                 .environment(windowManager)
                 .environment(settingsStore)
-                .environment(sessionTabState)
         }
         .commands {
             SidebarCommands()

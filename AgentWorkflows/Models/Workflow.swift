@@ -103,7 +103,6 @@ struct WorkflowStep: Codable, Equatable, Identifiable {
 
 enum StepType: String, Codable, Equatable {
     case prompt
-    case excavate
     case restartCLI
     case pause
     case break_ = "break"
@@ -139,8 +138,6 @@ extension Workflow {
         defaultAgent: "cli/claude",
         phases: [
             Phase(name: "Plan", steps: [
-                WorkflowStep(id: "plan-excavate", type: .excavate, label: "Excavate",
-                             agent: nil, prompt: "/excavation-agent {progress-path}", promptFile: nil),
                 WorkflowStep(id: "plan-grill-with-docs", type: .prompt, label: "Grill with Docs",
                              agent: nil, prompt: "/grill-with-docs", promptFile: nil),
                 WorkflowStep(id: "plan-to-prd", type: .prompt, label: "Write PRD",
