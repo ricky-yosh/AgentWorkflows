@@ -360,6 +360,19 @@ final class WorkflowEngine {
                         text = "\(seed)\n\(text)"
                         pendingSeed = nil
                     }
+                    // Inject brainstorm.md content when running Grill with Docs
+                    if step.id == "plan-grill-with-docs" {
+                        let brainstormURL = SessionDirectoryLayout.sessionDirectory(
+                            workingDirectory: URL(fileURLWithPath: session.workingDirectory),
+                            sessionID: session.id
+                        ).appendingPathComponent("braindump.md")
+                        if let brainstormData = try? Data(contentsOf: brainstormURL),
+                           let brainstormText = String(data: brainstormData, encoding: .utf8)?
+                            .trimmingCharacters(in: .whitespacesAndNewlines),
+                           !brainstormText.isEmpty {
+                            text = "\(brainstormText)\n\n\(text)"
+                        }
+                    }
                     promptDispatcher.dispatch(text, to: engine)
                     let agentLabel = agent ?? "default"
                     record(.promptSent, "Injected prompt to \(agentLabel)")

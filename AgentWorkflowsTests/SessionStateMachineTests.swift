@@ -5,7 +5,8 @@ import Foundation
 // MARK: - Session State Transition Tests
 
 /// Tests for R9: Session state transitions follow a strict state machine.
-/// Valid: idle→running, running→paused, paused→running, running→idle, running→completed.
+/// Valid: idle→running, running→paused, paused→running, running→idle, running→completed,
+///        completed→idle (allows restarting a completed session).
 /// All other transitions must be rejected.
 struct SessionStateTransitionTests {
 
@@ -150,13 +151,11 @@ struct SessionStateTransitionTests {
         #expect(session.state == .completed)
     }
 
-    @Test("completed → idle is invalid")
-    func completedToIdle() {
+    @Test("completed → idle is valid (restart)")
+    func completedToIdle() throws {
         var session = makeSession(state: .completed)
-        #expect(throws: SessionTransitionError.self) {
-            try session.transition(to: .idle)
-        }
-        #expect(session.state == .completed)
+        try session.transition(to: .idle)
+        #expect(session.state == .idle)
     }
 
     @Test("completed → completed is invalid (self-transition)")
@@ -220,6 +219,21 @@ struct SessionStateTransitionTests {
 
         try session.transition(to: .running)
         try session.transition(to: .idle)
+        try session.transition(to: .running)
+        #expect(session.state == .running)
+    }
+
+    @Test("restart after complete: idle → running → completed → idle → running")
+    func restartAfterComplete() throws {
+        var session = makeSession(state: .idle)
+
+        try session.transition(to: .running)
+        try session.transition(to: .completed)
+        #expect(session.state == .completed)
+
+        try session.transition(to: .idle)
+        #expect(session.state == .idle)
+
         try session.transition(to: .running)
         #expect(session.state == .running)
     }

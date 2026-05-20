@@ -221,7 +221,10 @@ struct SessionDetailView<Header: View>: View {
                 }
                 .help("Continue Session (⌘↩)")
             case .completed:
-                EmptyView()
+                Button(action: restartFromCompleted) {
+                    Image(systemName: "play.fill")
+                }
+                .help("Restart completed session (⌘↩)")
             case .stalled:
                 Button(action: continueExecution) {
                     Image(systemName: "play.fill")
@@ -295,7 +298,7 @@ struct SessionDetailView<Header: View>: View {
         case .paused, .stalled:
             continueExecution()
         case .completed:
-            break
+            restartFromCompleted()
         }
     }
 
@@ -336,6 +339,38 @@ struct SessionDetailView<Header: View>: View {
             let workflowEngine = engineManager.createWorkflowEngine(session: session, workflow: workflow, settingsStore: settingsStore)
             workflowEngine.start()
         }
+    }
+
+    private func restartFromCompleted() {
+        guard let workflow else { return }
+
+        var adjusted = session
+        adjusted.completedStepIDs = adjusted.completedStepIDs.filter { $0 != "verify-qa" }
+        adjusted.currentPhaseIndex = 2
+        adjusted.currentStepIndex = 1
+
+        sessionStore.updateSessionProgress(
+            session.id,
+            phaseIndex: adjusted.currentPhaseIndex,
+            stepIndex: adjusted.currentStepIndex,
+            completedStepIDs: adjusted.completedStepIDs
+        )
+        try? sessionStore.transitionSession(session.id, to: .idle)
+
+        do {
+            try sessionStore.transitionSession(session.id, to: .running)
+        } catch {
+            return
+        }
+
+        ensureTerminalRunning(phaseIndex: adjusted.currentPhaseIndex)
+        let workflowEngine = engineManager.createWorkflowEngine(
+            session: adjusted,
+            workflow: workflow,
+            settingsStore: settingsStore,
+            seedIntent: seedIdea
+        )
+        workflowEngine.start()
     }
 
     private func runFromHere(phaseIndex: Int, stepIndex: Int) {
