@@ -5,25 +5,28 @@ import SwiftTerm
 /// while a CLI agent is producing output, and handles Shift+Enter for
 /// inserting a newline without submitting.
 ///
-/// **Scroll persistence**
+/// **Scroll wheel forwarding**
 ///
-/// Without this, every linefeed resets the viewport to the bottom, making it
+/// When the application has mouse reporting enabled (``Terminal/mouseMode``
+/// is not ``MouseMode/off``), scroll wheel events are forwarded to the child
+/// process as mouse-scroll sequences via ``Terminal/sendEvent(buttonFlags:
+/// x:y:)`` so the application (e.g. OpenCode) can scroll its own UI.
+///
+/// Otherwise, the trackpad/mouse scrolls the terminal viewport.  Without
+/// this, every linefeed resets the viewport to the bottom, making it
 /// impossible to scroll up and read earlier output while a process runs.
-///
-/// ``scrollWheel(with:)`` is replaced via ``class_addMethod`` (the method is
-/// `public` not `open` on ``TerminalView``, so a Swift `override` is not
-/// allowed across modules).  The replacement saves the user's viewport
-/// position.  ``scrolled(source:position:)`` (``open`` on
+/// The override saves the user's viewport position, and
+/// ``scrolled(source:position:)`` (``open`` on
 /// ``LocalProcessTerminalView``) detects when the engine snaps `yDisp` to the
-/// bottom and restores the user's scroll position.
+/// bottom and restores it.
 ///
 /// **Shift+Enter**
 ///
-/// ``keyDown(with:)`` is similarly replaced.  When the user presses
-/// Shift+Return, the running CLI receives a bare `\n` (line feed) so it
-/// inserts a line break instead of submitting the prompt.  Since the running
-/// CLI may have `ECHO` off, the newline is also echoed locally to the
-/// terminal display via ``feed(byteArray:)``.
+/// ``keyDown(with:)`` is replaced via ``class_addMethod``.  When the user
+/// presses Shift+Return, the running CLI receives a bare `\n` (line feed) so
+/// it inserts a line break instead of submitting the prompt.  Since the
+/// running CLI may have ``ECHO`` off, the newline is also echoed locally to
+/// the terminal display via ``feed(byteArray:)``.
 final class ScrollTrackingTerminalView: LocalProcessTerminalView {
 
     // ----------------------------------------------------------------
@@ -66,8 +69,7 @@ final class ScrollTrackingTerminalView: LocalProcessTerminalView {
 
         if isTrackingScroll,
            let target = userScrollTarget,
-           scrollPosition >= 1.0,
-           terminal.buffer.yDisp < target
+           terminal.buffer.yDisp > target
         {
             isRestoringScroll = true
             scrollTo(row: target)
@@ -106,6 +108,19 @@ final class ScrollTrackingTerminalView: LocalProcessTerminalView {
         let block: @convention(block) (ScrollTrackingTerminalView, NSEvent) -> Void = { `self`, event in
             guard event.deltaY != 0 else {
                 original(self, selector, event)
+                return
+            }
+
+            // If the application has mouse reporting enabled, forward
+            // scroll events as mouse sequences so the app (e.g. OpenCode)
+            // can scroll its own UI.  Don't touch the viewport.
+            if self.allowMouseReporting, self.terminal.mouseMode != .off {
+                let button = event.deltaY > 0 ? 64 : 65
+                self.terminal.sendEvent(
+                    buttonFlags: button,
+                    x: self.terminal.buffer.x,
+                    y: self.terminal.buffer.y
+                )
                 return
             }
 
