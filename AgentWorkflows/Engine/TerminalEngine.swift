@@ -18,7 +18,7 @@ final class TerminalEngine: AgentEngine {
     private var readinessTimer: DispatchWorkItem?
 
     init() {
-        let view = LocalProcessTerminalView(frame: .zero)
+        let view = ScrollTrackingTerminalView(frame: .zero)
         self.terminalView = view
         // Delegate set after init since self isn't available in property initializers
         view.processDelegate = self
