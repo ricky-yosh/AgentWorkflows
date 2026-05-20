@@ -36,8 +36,11 @@ struct TerminalViewWrapper: NSViewRepresentable {
                 let view = terminalView,
                 (view.window?.firstResponder as? NSView).map { $0 === view || $0.isDescendant(of: view) } == true
             else { return event }
-            // Wrap in bracketed paste markers so the newline is treated as literal text, not submit
-            view.process?.send(data: ArraySlice([0x1B, 0x5B, 0x32, 0x30, 0x30, 0x7E, 0x0A, 0x1B, 0x5B, 0x32, 0x30, 0x31, 0x7E]))
+            // Send a bare newline so the running CLI inserts a line break
+            // without submitting.  Bracketed paste markers would require
+            // the application to have bracketed-paste mode active, which
+            // isn't guaranteed for CLI agents like claude-code.
+            view.process?.send(data: ArraySlice([0x0A]))
             return nil
         }
     }
