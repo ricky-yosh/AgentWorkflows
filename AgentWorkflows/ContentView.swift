@@ -216,7 +216,6 @@ struct ContentView: View {
                 SessionDetailView(session: session) {
                     bannerView
                 }
-                .id(session.id)
             } else if let entry = sessionStore.missingSessions.first(where: { $0.id == id }) {
                 MissingSessionDetailView(entry: entry)
                     .id(entry.id)

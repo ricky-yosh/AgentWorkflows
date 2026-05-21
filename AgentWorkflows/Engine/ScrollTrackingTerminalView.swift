@@ -36,11 +36,13 @@ import SwiftTerm
 ///   ``scrollWheel`` does not reliably generate these for trackpad continuous
 ///   deltas, so we accumulate `scrollingDeltaY` and emit one event per line.
 ///
-/// - **Shift+Enter**: the Kitty sequence `\x1b[13;2u` is sent directly.
-///   OpenCode's own documentation says this is what terminals should send;
-///   charmbracelet/x/input parses it without requiring full protocol
-///   negotiation.  When the Kitty protocol *is* formally active,
-///   SwiftTerm's own encoder takes over instead.
+/// - **Shift+Enter**: ESC+CR (`\x1b\r`) is sent in TUI mode.
+///   charmbracelet/x/input parses Kitty/modifyOtherKeys sequences correctly,
+///   but OpenCode has a command-routing bug (#1505) where structural
+///   Shift+Enter events fail to reach the textarea and fall through to submit.
+///   ESC+CR is the Ghostty-proven workaround that bypasses the interceptor.
+///   When the Kitty protocol is formally negotiated, SwiftTerm's own encoder
+///   takes over instead.
 final class ScrollTrackingTerminalView: LocalProcessTerminalView {
 
     // ----------------------------------------------------------------
@@ -65,28 +67,6 @@ final class ScrollTrackingTerminalView: LocalProcessTerminalView {
     required init?(coder: NSCoder) {
         Self.installOverrides()
         super.init(coder: coder)
-    }
-
-    override func viewDidMoveToWindow() {
-        super.viewDidMoveToWindow()
-        guard window != nil else { return }
-        // SwiftUI calls makeNSView on every session swap, so this view loses its
-        // window on deselect and regains it on reselect. A bare SIGWINCH is
-        // ignored by Bubble Tea when row/col counts haven't changed (it
-        // short-circuits its diff engine). Instead, flicker the PTY window size
-        // +1 row and back: the kernel reports a real dimension change via
-        // TIOCGWINSZ, forcing a full TUI repaint on both transitions.
-        let fd = process?.childfd ?? -1
-        let pid = process?.shellPid ?? 0
-        guard fd >= 0, pid > 0 else { return }
-        var size = winsize()
-        guard ioctl(fd, TIOCGWINSZ, &size) == 0, size.ws_row > 0 else { return }
-        var bigger = size
-        bigger.ws_row += 1
-        ioctl(fd, TIOCSWINSZ, &bigger)
-        kill(pid, SIGWINCH)
-        ioctl(fd, TIOCSWINSZ, &size)
-        kill(pid, SIGWINCH)
     }
 
     // ----------------------------------------------------------------
@@ -209,34 +189,41 @@ final class ScrollTrackingTerminalView: LocalProcessTerminalView {
             let isShiftEnter = event.keyCode == 36
                 && event.modifierFlags.intersection(significantModifiers) == .shift
 
+            NSLog("[STTV] keyDown keyCode=%d chars=%@ mods=0x%x isShiftEnter=%d",
+                  event.keyCode,
+                  event.characters ?? "(nil)",
+                  event.modifierFlags.rawValue,
+                  isShiftEnter ? 1 : 0)
+
             guard isShiftEnter else {
                 original(self, selector, event)
                 return
             }
 
-            // When the Kitty keyboard protocol is active, SwiftTerm's own
-            // keyDown encoder sends the correct sequence (\x1b[13;2u).
-            guard self.terminal.keyboardEnhancementFlags.isEmpty else {
-                original(self, selector, event)
-                return
-            }
+            let kittyEmpty = self.terminal.keyboardEnhancementFlags.isEmpty
+            let isAlt = self.terminal.isCurrentBufferAlternate
+            let mouseOff = self.terminal.mouseMode == .off
+            NSLog("[STTV] ShiftEnter: kittyEmpty=%d isAlt=%d mouseOff=%d",
+                  kittyEmpty ? 1 : 0, isAlt ? 1 : 0, mouseOff ? 1 : 0)
 
-            if self.terminal.isCurrentBufferAlternate || self.terminal.mouseMode != .off {
-                // TUI app (e.g. OpenCode/Bubble Tea): send the Kitty keyboard
-                // protocol sequence for Shift+Enter. OpenCode's docs explicitly
-                // state this is the sequence terminals should send, and
-                // charmbracelet/x/input parses it regardless of whether the
-                // full negotiation handshake completed.
-                // No local echo — the TUI redraws its own display.
-                let seq = Array("\u{1b}[13;2u".utf8)
-                self.process?.send(data: ArraySlice(seq))
-            } else {
-                // Plain scrollback CLI: bare LF is enough for ctrl+j newline,
-                // with a local CR+LF echo so the newline is visible.
+            if isAlt || !mouseOff {
+                // TUI app (e.g. OpenCode/Bubble Tea): always send ESC+CR (\x1b\r).
+                // Even with Kitty active, SwiftTerm would send \x1b[13;2u which
+                // OpenCode parses correctly but bug #1505 causes it to fall through
+                // to submit. ESC+CR bypasses the command interceptor entirely.
+                NSLog("[STTV] -> sending ESC+CR [0x1B, 0x0D] to PTY")
+                self.process?.send(data: ArraySlice([0x1B, 0x0D]))
+            } else if kittyEmpty {
+                // Plain scrollback CLI, no Kitty: bare LF + local echo.
+                NSLog("[STTV] -> sending 0x0A + local echo to PTY")
                 if let p = self.process {
                     p.send(data: ArraySlice([0x0A]))
                 }
                 self.feed(byteArray: ArraySlice([0x0D, 0x0A]))
+            } else {
+                // Plain scrollback CLI with Kitty active: defer to SwiftTerm's encoder.
+                NSLog("[STTV] -> deferring to original (plain CLI + Kitty)")
+                original(self, selector, event)
             }
         }
 

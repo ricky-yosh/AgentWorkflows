@@ -74,6 +74,11 @@ struct SessionDetailView<Header: View>: View {
                 togglePlayback()
             }
             .task(id: session.id) {
+                selectedTab = .terminal
+                phaseExpansion = [:]
+                seedIdea = nil
+                seedPromptPresented = false
+                workflow = nil
                 loadWorkflow()
                 primeTaskCounts()
             }
