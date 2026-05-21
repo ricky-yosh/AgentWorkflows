@@ -8,20 +8,31 @@ import SwiftTerm
 /// Without this, every linefeed resets the viewport to the bottom, making it
 /// impossible to scroll up and read earlier output while a process runs.
 ///
-/// ``scrollWheel(with:)`` is replaced via ``class_addMethod`` (the method is
-/// `public` not `open` on ``TerminalView``, so a Swift `override` is not
-/// allowed across modules).  The replacement saves the user's viewport
-/// position.  ``scrolled(source:position:)`` (``open`` on
-/// ``LocalProcessTerminalView``) detects when the engine snaps `yDisp` to the
-/// bottom and restores the user's scroll position.
+/// **Architecture**
+///
+/// SwiftTerm's ``Terminal`` has an internal `userScrolling` flag that is
+/// **never set to true** by any production code.  As a result,
+/// ``Terminal.scroll()`` always snaps `yDisp` to `yBase` (the bottom of the
+/// buffer).  We work around this at two levels:
+///
+/// 1. ``scrolled(source:yDisp:)`` (``open`` on ``MacTerminalView``) is the
+///    ``TerminalDelegate`` callback fired by ``Terminal.scroll()``.  By
+///    overriding it we correct `yDisp` **before** the view updates, avoiding
+///    any visible flicker.
+///
+/// 2. ``scrollWheel(with:)`` is replaced via ``class_addMethod`` (the method
+///    is `public` not `open`, so a Swift `override` is not allowed across
+///    modules).  The replacement tracks the user's scroll position so the
+///    delegate override knows what row to pin the viewport to.
+///
+/// Tracking persists until the user scrolls all the way to the bottom,
+/// matching the default behaviour of Terminal.app and iTerm2.
 ///
 /// **Shift+Enter**
 ///
 /// ``keyDown(with:)`` is similarly replaced.  When the user presses
-/// Shift+Return, the running CLI receives a bare `\n` (line feed) so it
-/// inserts a line break instead of submitting the prompt.  Since the
-/// running CLI may have ``ECHO`` off, the newline is also echoed locally to
-/// the terminal display via ``feed(byteArray:)``.
+/// Shift+Return, the running CLI receives a bare `\n` (line feed) and a
+/// CR+LF is echoed locally so the newline is visible.
 final class ScrollTrackingTerminalView: LocalProcessTerminalView {
 
     // ----------------------------------------------------------------
@@ -30,9 +41,6 @@ final class ScrollTrackingTerminalView: LocalProcessTerminalView {
 
     private var isTrackingScroll = false
     private var userScrollTarget: Int?
-    private var isRestoringScroll = false
-    private var isInUserScroll = false
-    private var scrollEndWorkItem: DispatchWorkItem?
 
     // ----------------------------------------------------------------
     // MARK: - Init / deinit
@@ -48,36 +56,23 @@ final class ScrollTrackingTerminalView: LocalProcessTerminalView {
         super.init(coder: coder)
     }
 
-    deinit {
-        scrollEndWorkItem?.cancel()
-    }
-
     // ----------------------------------------------------------------
-    // MARK: - scrolled delegate (open on LocalProcessTerminalView)
+    // MARK: - TerminalDelegate (MacTerminalView) — process-driven scroll
     // ----------------------------------------------------------------
 
-    override func scrolled(source: TerminalView, position: Double) {
-        guard !isRestoringScroll else {
-            isRestoringScroll = false
-            super.scrolled(source: source, position: position)
-            return
-        }
-
-        guard !isInUserScroll else {
-            super.scrolled(source: source, position: position)
-            return
-        }
-
+    /// Intercepts ``Terminal.scroll()`` before the viewport updates.
+    /// When the user has manually scrolled up, this prevents every
+    /// line of process output from snapping `yDisp` back to the bottom.
+    override func scrolled(source terminal: Terminal, yDisp: Int) {
         if isTrackingScroll,
            let target = userScrollTarget,
            terminal.buffer.yDisp > target
         {
-            isRestoringScroll = true
-            scrollTo(row: target)
-            return
+            // Terminal.scroll() just set yDisp = yBase (bottom).
+            // Pin the viewport back to where the user was reading.
+            terminal.buffer.yDisp = target
         }
-
-        super.scrolled(source: source, position: position)
+        super.scrolled(source: terminal, yDisp: yDisp)
     }
 
     // ----------------------------------------------------------------
@@ -112,32 +107,18 @@ final class ScrollTrackingTerminalView: LocalProcessTerminalView {
                 return
             }
 
-            self.scrollEndWorkItem?.cancel()
-            self.scrollEndWorkItem = nil
-
-            self.isInUserScroll = true
             self.isTrackingScroll = true
 
             original(self, selector, event)
 
-            self.isInUserScroll = false
-
             if self.scrollPosition >= 1.0 {
+                // User scrolled to the bottom — resume normal auto-scroll.
                 self.isTrackingScroll = false
                 self.userScrollTarget = nil
                 return
             }
 
             self.userScrollTarget = self.terminal.buffer.yDisp
-
-            let gestureEnded = event.phase.contains(.ended) || event.phase.contains(.cancelled)
-            let momentumEnded = event.momentumPhase.contains(.ended) || event.momentumPhase.contains(.cancelled)
-            let noMomentum = event.momentumPhase.isEmpty
-            let isMouseWheel = event.phase.isEmpty && event.momentumPhase.isEmpty
-
-            if (gestureEnded && (momentumEnded || noMomentum)) || momentumEnded || isMouseWheel {
-                scheduleClear(self)
-            }
         }
 
         let imp = imp_implementationWithBlock(block)
@@ -167,8 +148,6 @@ final class ScrollTrackingTerminalView: LocalProcessTerminalView {
                 return
             }
 
-            // Send a bare newline to the process for a line break, and echo
-            // a CR+LF locally so it shows on screen even when ECHO is off.
             if let p = self.process {
                 p.send(data: ArraySlice([0x0A]))
             }
@@ -177,18 +156,5 @@ final class ScrollTrackingTerminalView: LocalProcessTerminalView {
 
         let imp = imp_implementationWithBlock(block)
         class_addMethod(ScrollTrackingTerminalView.self, selector, imp, typeEncoding)
-    }
-
-    // ----------------------------------------------------------------
-    // MARK: - Cooldown
-    // ----------------------------------------------------------------
-
-    private static func scheduleClear(_ view: ScrollTrackingTerminalView) {
-        let work = DispatchWorkItem { [weak view] in
-            view?.isTrackingScroll = false
-            view?.userScrollTarget = nil
-        }
-        view.scrollEndWorkItem = work
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3, execute: work)
     }
 }
