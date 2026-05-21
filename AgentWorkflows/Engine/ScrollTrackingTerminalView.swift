@@ -62,11 +62,23 @@ final class ScrollTrackingTerminalView: LocalProcessTerminalView {
     override init(frame: CGRect) {
         Self.installOverrides()
         super.init(frame: frame)
+        print("[STTV] init — self=\(ObjectIdentifier(self))")
     }
 
     required init?(coder: NSCoder) {
         Self.installOverrides()
         super.init(coder: coder)
+        print("[STTV] init(coder:) — self=\(ObjectIdentifier(self))")
+    }
+
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        print("[STTV] viewDidMoveToWindow — self=\(ObjectIdentifier(self)) window=\(window?.description ?? "nil")")
+    }
+
+    override func viewDidMoveToSuperview() {
+        super.viewDidMoveToSuperview()
+        print("[STTV] viewDidMoveToSuperview — self=\(ObjectIdentifier(self)) superview=\(superview == nil ? "nil" : "present") isHidden=\(isHidden)")
     }
 
     // ----------------------------------------------------------------

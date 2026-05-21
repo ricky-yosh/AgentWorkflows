@@ -21,17 +21,25 @@ struct TerminalHost: View {
     }
 
     var body: some View {
+        let engine = currentEngine
+        let _ = print("[TH] body — session=\(session.id.uuidString.prefix(8)) activeTool=\(activeTerminalTool ?? "nil") engine=\(engine == nil ? "nil" : "present")")
         ZStack {
-            if let engine = currentEngine {
-                TerminalViewWrapper(terminalView: engine.terminalView)
-                    .overlay(alignment: .top) {
-                        if session.workflowName.isEmpty,
-                           case .terminated = engine.engineState {
-                            shellExitedBanner(for: engine)
-                                .padding()
-                        }
+            // TerminalViewWrapper is always present so its container NSView never
+            // leaves the window hierarchy. Removing it would invalidate the
+            // CAMetalLayer drawable and corrupt full-screen TUI apps (OpenCode).
+            // When engine is nil we pass nil so the wrapper hides whatever was
+            // showing but keeps it alive as a container subview.
+            let _ = print("[TH] rendering TerminalViewWrapper — terminalView=\(engine.map { "\(ObjectIdentifier($0.terminalView))" } ?? "nil")")
+            TerminalViewWrapper(terminalView: engine?.terminalView)
+                .overlay(alignment: .top) {
+                    if session.workflowName.isEmpty,
+                       case .terminated = engine?.engineState ?? .idle {
+                        shellExitedBanner(for: engine!)
+                            .padding()
                     }
-            } else {
+                }
+
+            if engine == nil {
                 emptyState
             }
         }

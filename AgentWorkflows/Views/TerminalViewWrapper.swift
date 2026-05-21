@@ -4,20 +4,19 @@ import SwiftTerm
 /// Wraps a persistent `NSView` container that accumulates all terminal views
 /// as subviews and shows/hides them as sessions change.
 ///
-/// **Why a container instead of direct wrapping:**
-/// SwiftUI destroys and recreates `NSViewRepresentable` on every session swap
-/// because `ContentView` switches between `SessionDetailView` instances.
-/// If the `LocalProcessTerminalView` is returned directly from `makeNSView`,
-/// it loses its window on each swap — invalidating the Metal `CAMetalLayer`
-/// drawable and blanking the TUI framebuffer.
+/// **Why always-present, with optional terminalView:**
+/// When a session has no active engine the caller passes `nil`.  The container
+/// stays in the SwiftUI view tree so the previously-visible terminal view is
+/// never removed from the window hierarchy.  Removing a view from a window
+/// invalidates its `CAMetalLayer` drawable, blanking full-screen TUI apps
+/// (e.g. OpenCode / Bubble Tea) — even if the view is re-inserted later.
 ///
-/// By returning a stable container `NSView` from `makeNSView` and swapping
-/// which terminal view is visible via `isHidden` in `updateNSView`, terminal
-/// views are never removed from the window hierarchy. Their Metal drawables
-/// are preserved, so TUI apps (e.g. OpenCode) restore correctly without
-/// needing SIGWINCH or any PTY-level hacks.
+/// Passing a non-nil `terminalView` shows that view and hides the previous
+/// one; both remain as subviews of the container.
 struct TerminalViewWrapper: NSViewRepresentable {
-    let terminalView: LocalProcessTerminalView
+    /// The terminal view to show, or `nil` to hide the current view while
+    /// keeping it (and the container) alive in the window hierarchy.
+    let terminalView: LocalProcessTerminalView?
 
     final class Coordinator {
         var visibleView: LocalProcessTerminalView?
@@ -26,21 +25,42 @@ struct TerminalViewWrapper: NSViewRepresentable {
     func makeCoordinator() -> Coordinator { Coordinator() }
 
     func makeNSView(context: Context) -> NSView {
+        print("[TVW] makeNSView — terminalView=\(terminalView.map { "\(ObjectIdentifier($0))" } ?? "nil")")
         let container = NSView()
         container.wantsLayer = true
-        pin(terminalView, to: container)
-        context.coordinator.visibleView = terminalView
+        if let tv = terminalView {
+            pin(tv, to: container)
+            context.coordinator.visibleView = tv
+        }
         return container
     }
 
     func updateNSView(_ container: NSView, context: Context) {
-        guard context.coordinator.visibleView !== terminalView else { return }
-        context.coordinator.visibleView?.isHidden = true
-        if terminalView.superview !== container {
-            pin(terminalView, to: container)
+        let newID = terminalView.map { "\(ObjectIdentifier($0))" } ?? "nil"
+        let prevID = context.coordinator.visibleView.map { "\(ObjectIdentifier($0))" } ?? "nil"
+        print("[TVW] updateNSView — new=\(newID) prev=\(prevID)")
+
+        guard context.coordinator.visibleView !== terminalView else {
+            print("[TVW] updateNSView — same view, no-op")
+            return
         }
-        terminalView.isHidden = false
-        context.coordinator.visibleView = terminalView
+
+        if let tv = terminalView {
+            // Switch to a new terminal view — keep all previous views as hidden subviews.
+            context.coordinator.visibleView?.isHidden = true
+            if tv.superview !== container {
+                print("[TVW] updateNSView — pinning new view to container")
+                pin(tv, to: container)
+            }
+            tv.isHidden = false
+            context.coordinator.visibleView = tv
+            print("[TVW] updateNSView — switched to \(ObjectIdentifier(tv)) window=\(tv.window?.description ?? "nil")")
+        } else {
+            // nil: hide the current view but leave it (and the container) in the hierarchy.
+            print("[TVW] updateNSView — nil terminalView, hiding current view")
+            context.coordinator.visibleView?.isHidden = true
+            context.coordinator.visibleView = nil
+        }
     }
 
     private func pin(_ view: LocalProcessTerminalView, to container: NSView) {
