@@ -10,7 +10,7 @@ struct SessionDetailView<Header: View>: View {
     @Environment(EngineManager.self) private var engineManager
     @Environment(SettingsStore.self) private var settingsStore
 
-    @State private var inspectorPresented = true
+    @State private var inspectorPresented = false
     @State private var phaseExpansion: [AnyHashable: Bool] = [:]
     @State private var workflow: Workflow?
 
@@ -46,6 +46,13 @@ struct SessionDetailView<Header: View>: View {
                 )
             }
             tabbedBody
+        }
+        .onAppear {
+            DispatchQueue.main.async {
+                var t = Transaction()
+                t.disablesAnimations = true
+                withTransaction(t) { inspectorPresented = true }
+            }
         }
             .inspector(isPresented: $inspectorPresented) {
                 WorkflowInspector(

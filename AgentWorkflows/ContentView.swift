@@ -83,12 +83,16 @@ struct ContentView: View {
     var body: some View {
         NavigationSplitView {
             SessionSidebarView(selection: selectedItemBinding, showingNewSession: showNewSessionBinding)
+                .navigationSplitViewColumnWidth(220)
         } detail: {
             mainContent
+                .frame(minWidth: 400)
+                .background { SidebarAnimationBridge() }
         }
         .background {
             WindowNumberAccessor(windowNumber: $windowNumber)
             FocusedValuePublisher(action: newSessionAction, isSessionSelected: sessionIsSelected)
+            WindowMinSizeSetter(minSize: CGSize(width: 800, height: 500))
         }
         .sheet(isPresented: showNewSessionBinding) {
             NewSessionView(
@@ -428,6 +432,27 @@ private struct WindowNumberAccessor: NSViewRepresentable {
         DispatchQueue.main.async {
             self.windowNumber = newNumber
         }
+    }
+}
+
+// MARK: - Window Min Size Setter
+
+/// Sets NSWindow.minSize directly, bypassing SwiftUI's content-size negotiation
+/// which varies with NavigationSplitView state and can fall below the intended floor.
+private struct WindowMinSizeSetter: NSViewRepresentable {
+    let minSize: CGSize
+
+    func makeNSView(context: Context) -> NSView {
+        let view = NSView()
+        DispatchQueue.main.async {
+            view.window?.minSize = minSize
+        }
+        return view
+    }
+
+    func updateNSView(_ nsView: NSView, context: Context) {
+        guard nsView.window?.minSize != minSize else { return }
+        nsView.window?.minSize = minSize
     }
 }
 

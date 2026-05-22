@@ -153,7 +153,9 @@ struct AgentWorkflowsApp: App {
                 .environment(engineManager)
                 .environment(windowManager)
                 .environment(settingsStore)
+                .frame(minWidth: 800, minHeight: 500)
         }
+        .windowResizability(.contentMinSize)
         .commands {
             SidebarCommands()
             AppCommands()

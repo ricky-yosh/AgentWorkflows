@@ -43,7 +43,7 @@ struct TerminalHost: View {
                 emptyState
             }
         }
-        .frame(minWidth: 480, maxWidth: .infinity, maxHeight: .infinity)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
         .onAppear { startDefaultEngineIfNeeded() }
     }
 
