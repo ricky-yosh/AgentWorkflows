@@ -43,20 +43,26 @@ final class OpenCodeEventDecoder {
 
     private func decodeToolUse(_ json: [String: Any]) -> [IterationEvent] {
         let status = toolStatus(from: json)
+        // OpenCode emits a single frame per tool call with the final status
+        // (no separate "running" frame), so emit both events for completed calls.
+        if status == "completed" || status == "failed" || status == "error" {
+            return [
+                .toolUse(
+                    name: toolName(from: json),
+                    inputSummary: inputSummary(from: toolInput(from: json))
+                ),
+                .toolResult(
+                    summary: toolResultSummary(from: json),
+                    failed: status == "failed" || status == "error"
+                )
+            ]
+        }
         if status == "running" {
             return [.toolUse(
                 name: toolName(from: json),
                 inputSummary: inputSummary(from: toolInput(from: json))
             )]
         }
-
-        if status == "completed" || status == "failed" || status == "error" {
-            return [.toolResult(
-                summary: toolResultSummary(from: json),
-                failed: status == "failed" || status == "error"
-            )]
-        }
-
         return []
     }
 
