@@ -13,7 +13,7 @@ struct IterationRecord: Identifiable {
 }
 
 /// Live status for a Session's run — the data surface behind
-/// `SessionHeaderStatus` and `SessionCardStatus`. Populated by the
+/// `SidebarSessionStatus` and `SessionCardStatus`. Populated by the
 /// `HeadlessRalphDriver` via its `onStateChange` / `onIterationComplete` callbacks.
 @Observable
 @MainActor

@@ -28,7 +28,7 @@ final class EngineManager {
         }
     }
 
-    /// Live status surface for a Session — backs SessionHeaderStatus and
+    /// Live status surface for a Session — backs SidebarSessionStatus and
     /// SessionCardStatus. Lazily created on first read so every Session has
     /// a stable status object regardless of whether the run has started.
     @MainActor
@@ -117,6 +117,10 @@ final class EngineManager {
                 guard let self else { return TerminalEngine() }
                 let tool = (agent?.isEmpty == false ? agent! : self.defaultAgent)
                 let engine = self.engine(for: session.id, tool: tool)
+                // workflowEngines[session.id] is set before start() is called,
+                // so this lookup is always valid when the resolver fires.
+                let wfe = self.workflowEngines[session.id]
+                engine.onDebugLog = { [weak wfe] msg in wfe?.logDebug(msg) }
                 if engine.engineState != .running {
                     if case .terminated = engine.engineState {
                         engine.terminate()  // reset to idle so start() can re-launch

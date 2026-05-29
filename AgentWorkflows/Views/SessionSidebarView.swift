@@ -245,9 +245,34 @@ struct SessionSidebarView: View {
                 .onSubmit { commitInlineRename() }
                 .onExitCommand { inlineRenamingID = nil }
                 .onAppear { inlineRenameFocused = true }
+        } else if selection == .session(session.id) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(session.name)
+                    .font(.body)
+                    .lineLimit(1)
+                SidebarSessionStatus(
+                    status: engineManager.runStatus(for: session.id),
+                    session: session,
+                    workflow: Workflow.ralph
+                )
+                .padding(.top, 4)
+            }
+            .onAppear { primeTaskCounts(for: session) }
         } else {
             SessionCardView(session: session)
         }
+    }
+
+    private func primeTaskCounts(for session: Session) {
+        let dir = SessionDirectoryLayout.sessionDirectory(
+            workingDirectory: URL(fileURLWithPath: session.workingDirectory),
+            sessionID: session.id
+        )
+        let passes = WorkflowEngine.readPasses(progressDir: dir.path)
+        guard !passes.isEmpty else { return }
+        let status = engineManager.runStatus(for: session.id)
+        status.tasksPassed = passes.filter { $0 }.count
+        status.tasksTotal = passes.count
     }
 
     private func startInlineRename(session: Session) {
