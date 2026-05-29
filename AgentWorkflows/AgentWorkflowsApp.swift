@@ -18,10 +18,10 @@ private struct AppCommands: Commands {
         }
 
         CommandGroup(after: .sidebar) {
-            Button("Toggle Inspector") {
-                NotificationCenter.default.post(name: .awToggleInspector, object: nil)
+            Button("Toggle Terminal") {
+                NotificationCenter.default.post(name: .awToggleTerminal, object: nil)
             }
-            .keyboardShortcut("i", modifiers: [.command, .control])
+            .keyboardShortcut("\\", modifiers: .command)
             .disabled(isSessionSelected != true)
 
             Button("Next Session") {
@@ -153,7 +153,7 @@ struct AgentWorkflowsApp: App {
                 .environment(engineManager)
                 .environment(windowManager)
                 .environment(settingsStore)
-                .frame(minWidth: 800, minHeight: 500)
+                .frame(minWidth: 900, minHeight: 500)
         }
         .windowResizability(.contentMinSize)
         .commands {

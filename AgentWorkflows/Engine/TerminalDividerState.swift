@@ -24,7 +24,7 @@ final class TerminalDividerState {
     private(set) var collapsed: Bool
 
     /// Stores the width before collapse so it can be restored on expand.
-    private var previousWidth: CGFloat
+    private(set) var previousWidth: CGFloat
 
     init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
@@ -71,16 +71,25 @@ final class TerminalDividerState {
         }
     }
 
+    /// Set the terminal width directly (from a drag gesture absolute position),
+    /// clamping to minimum and maximum bounds.
+    ///
+    /// - Parameters:
+    ///   - newWidth: The candidate absolute width in points.
+    ///   - windowWidth: The current window width, used to compute the 60% cap.
+    func setWidth(_ newWidth: CGFloat, windowWidth: CGFloat) {
+        guard !collapsed else { return }
+        width = clampWidth(newWidth, windowWidth: windowWidth)
+        persist()
+    }
+
     /// Apply a horizontal drag delta, clamping to minimum and maximum bounds.
     ///
     /// - Parameters:
     ///   - delta: The horizontal drag offset in points (positive = rightward).
     ///   - windowWidth: The current window width, used to compute the 60% cap.
     func handleDrag(delta: CGFloat, windowWidth: CGFloat) {
-        guard !collapsed else { return }
-        let clamped = clampWidth(width + delta, windowWidth: windowWidth)
-        width = clamped
-        persist()
+        setWidth(width + delta, windowWidth: windowWidth)
     }
 
     /// Clamp a candidate width to the allowed range.
@@ -89,7 +98,19 @@ final class TerminalDividerState {
         return max(Self.minimumWidth, min(candidate, maxAllowed))
     }
 
-    private func persist() {
+    /// Clamp the current width to the allowed range for the given window width.
+    /// Called when the window resizes to prevent the terminal from exceeding its
+    /// maximum fraction.
+    func clampWidth(to windowWidth: CGFloat) {
+        guard !collapsed else { return }
+        let maxAllowed = windowWidth * Self.maxWindowFraction
+        if width > maxAllowed {
+            width = max(Self.minimumWidth, maxAllowed)
+            persist()
+        }
+    }
+
+    func persist() {
         defaults.set(Double(width), forKey: Self.widthKey)
         defaults.set(collapsed, forKey: Self.collapsedKey)
         defaults.set(Double(previousWidth), forKey: Self.previousWidthKey)
