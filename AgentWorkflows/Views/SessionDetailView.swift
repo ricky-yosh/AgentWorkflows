@@ -19,10 +19,10 @@ struct SessionDetailView<Header: View>: View {
     /// same seed without re-prompting.
     @State private var seedIdea: String?
     @State private var seedPromptPresented = false
-    @State private var selectedTab: SessionTab = .terminal
+    @State private var selectedTab: SessionTab = .iterations
 
     private enum SessionTab: Hashable {
-        case terminal, iterations, files, diff, log
+        case iterations, files, diff, log, workflow
     }
 
     private var workflowEngine: WorkflowEngine? {
@@ -81,7 +81,7 @@ struct SessionDetailView<Header: View>: View {
                 togglePlayback()
             }
             .task(id: session.id) {
-                selectedTab = .terminal
+                selectedTab = .iterations
                 phaseExpansion = [:]
                 seedIdea = nil
                 seedPromptPresented = false
@@ -127,10 +127,6 @@ struct SessionDetailView<Header: View>: View {
     @ViewBuilder
     private var tabbedBody: some View {
         TabView(selection: $selectedTab) {
-            TerminalHost(session: session)
-                .tabItem { Label("Terminal", systemImage: "terminal") }
-                .tag(SessionTab.terminal)
-
             IterationsView(
                 sessionID: session.id,
                 tasksFileURL: SessionDirectoryLayout.tasksFileURL(
@@ -154,11 +150,11 @@ struct SessionDetailView<Header: View>: View {
                 .tag(SessionTab.log)
         }
         .background(TabTooltipSetter(tooltips: [
-            "Terminal (⌘1)",
-            "Iterations (⌘2)",
-            "Files (⌘3)",
-            "Diff (⌘4)",
-            "Log (⌘5)"
+            "Iterations (⌘1)",
+            "Files (⌘2)",
+            "Diff (⌘3)",
+            "Log (⌘4)",
+            "Workflow (⌘5)"
         ]))
         .overlay(tabShortcuts)
     }
@@ -166,19 +162,19 @@ struct SessionDetailView<Header: View>: View {
     @ViewBuilder
     private var tabShortcuts: some View {
         ZStack {
-            Button("") { selectedTab = .terminal }
+            Button("") { selectedTab = .iterations }
                 .keyboardShortcut("1", modifiers: .command)
                 .hidden()
-            Button("") { selectedTab = .iterations }
+            Button("") { selectedTab = .files }
                 .keyboardShortcut("2", modifiers: .command)
                 .hidden()
-            Button("") { selectedTab = .files }
+            Button("") { selectedTab = .diff }
                 .keyboardShortcut("3", modifiers: .command)
                 .hidden()
-            Button("") { selectedTab = .diff }
+            Button("") { selectedTab = .log }
                 .keyboardShortcut("4", modifiers: .command)
                 .hidden()
-            Button("") { selectedTab = .log }
+            Button("") { selectedTab = .workflow }
                 .keyboardShortcut("5", modifiers: .command)
                 .hidden()
         }
