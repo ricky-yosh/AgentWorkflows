@@ -21,7 +21,7 @@ extension FocusedValues {
 extension Notification.Name {
     static let awShowNewSession = Notification.Name("AWShowNewSession")
     static let awNewSessionSameFolder = Notification.Name("AWNewSessionSameFolder")
-    static let awToggleInspector = Notification.Name("AWToggleInspector")
+    static let awToggleTerminal = Notification.Name("AWToggleTerminal")
     static let awCycleSessionForward = Notification.Name("AWCycleSessionForward")
     static let awCycleSessionBackward = Notification.Name("AWCycleSessionBackward")
     static let awSessionTogglePlayback = Notification.Name("AWSessionTogglePlayback")
@@ -86,13 +86,13 @@ struct ContentView: View {
                 .navigationSplitViewColumnWidth(220)
         } detail: {
             mainContent
-                .frame(minWidth: 400)
+                .frame(minWidth: 500)
                 .background { SidebarAnimationBridge() }
         }
         .background {
             WindowNumberAccessor(windowNumber: $windowNumber)
             FocusedValuePublisher(action: newSessionAction, isSessionSelected: sessionIsSelected)
-            WindowMinSizeSetter(minSize: CGSize(width: 800, height: 500))
+            WindowMinSizeSetter(minSize: CGSize(width: 900, height: 500))
         }
         .sheet(isPresented: showNewSessionBinding) {
             NewSessionView(
