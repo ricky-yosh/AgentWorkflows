@@ -25,7 +25,6 @@ struct TerminalViewWrapper: NSViewRepresentable {
     func makeCoordinator() -> Coordinator { Coordinator() }
 
     func makeNSView(context: Context) -> NSView {
-        print("[TVW] makeNSView — terminalView=\(terminalView.map { "\(ObjectIdentifier($0))" } ?? "nil")")
         let container = NSView()
         container.wantsLayer = true
         if let tv = terminalView {
@@ -36,12 +35,7 @@ struct TerminalViewWrapper: NSViewRepresentable {
     }
 
     func updateNSView(_ container: NSView, context: Context) {
-        let newID = terminalView.map { "\(ObjectIdentifier($0))" } ?? "nil"
-        let prevID = context.coordinator.visibleView.map { "\(ObjectIdentifier($0))" } ?? "nil"
-        print("[TVW] updateNSView — new=\(newID) prev=\(prevID)")
-
         guard context.coordinator.visibleView !== terminalView else {
-            print("[TVW] updateNSView — same view, no-op")
             return
         }
 
@@ -49,15 +43,12 @@ struct TerminalViewWrapper: NSViewRepresentable {
             // Switch to a new terminal view — keep all previous views as hidden subviews.
             context.coordinator.visibleView?.isHidden = true
             if tv.superview !== container {
-                print("[TVW] updateNSView — pinning new view to container")
                 pin(tv, to: container)
             }
             tv.isHidden = false
             context.coordinator.visibleView = tv
-            print("[TVW] updateNSView — switched to \(ObjectIdentifier(tv)) window=\(tv.window?.description ?? "nil")")
         } else {
             // nil: hide the current view but leave it (and the container) in the hierarchy.
-            print("[TVW] updateNSView — nil terminalView, hiding current view")
             context.coordinator.visibleView?.isHidden = true
             context.coordinator.visibleView = nil
         }
