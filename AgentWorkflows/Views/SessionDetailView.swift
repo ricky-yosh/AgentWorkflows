@@ -1,7 +1,7 @@
 import SwiftUI
 import AppKit
 
-/// Session detail layout: terminal in the center, workflow inspector on the right.
+/// Session detail layout: terminal as permanent left pane, tabs on the right.
 struct SessionDetailView<Header: View>: View {
     let session: Session
     @ViewBuilder let headerContent: Header
@@ -10,7 +10,7 @@ struct SessionDetailView<Header: View>: View {
     @Environment(EngineManager.self) private var engineManager
     @Environment(SettingsStore.self) private var settingsStore
 
-    @State private var inspectorPresented = false
+    @State private var terminalDividerState = TerminalDividerState()
     @State private var phaseExpansion: [AnyHashable: Bool] = [:]
     @State private var workflow: Workflow?
 
@@ -30,56 +30,35 @@ struct SessionDetailView<Header: View>: View {
     }
 
     var body: some View {
-        VStack(spacing: 0) {
-            headerContent
-            SessionHeaderStatus(
-                status: engineManager.runStatus(for: session.id),
-                session: session,
-                workflow: workflow
-            )
-            if let stepID = reviewPauseStepID {
-                Divider()
-                ReviewPausePanel(
-                    stepID: stepID,
-                    progressDirectoryURL: progressDirectoryURL,
-                    onContinue: continueExecution
-                )
-            }
-            tabbedBody
-        }
-        .onAppear {
-            DispatchQueue.main.async {
-                var t = Transaction()
-                t.disablesAnimations = true
-                withTransaction(t) { inspectorPresented = true }
-            }
-        }
-            .inspector(isPresented: $inspectorPresented) {
-                WorkflowInspector(
-                    session: session,
-                    workflow: workflow,
-                    workflowEngine: workflowEngine,
-                    phaseExpansion: $phaseExpansion,
-                    onRunFromHere: runFromHere
-                )
-            }
-            .toolbar {
-                ToolbarItemGroup(placement: .primaryAction) {
-                    playStopButton
-                    Button {
-                        inspectorPresented.toggle()
-                    } label: {
-                        Label("Inspector", systemImage: "sidebar.trailing")
+        GeometryReader { geometry in
+            VStack(spacing: 0) {
+                headerContent
+                HStack(spacing: 0) {
+                    if !terminalDividerState.collapsed {
+                        terminalPane
+                            .frame(width: terminalDividerState.width)
                     }
-                    .help("Toggle Inspector (⌃⌘I)")
+                    TerminalDivider(
+                        state: terminalDividerState,
+                        windowWidth: geometry.size.width
+                    )
+                    tabPane
                 }
             }
-            .onReceive(NotificationCenter.default.publisher(for: .awToggleInspector)) { _ in
-                inspectorPresented.toggle()
+        }
+        .toolbar {
+            ToolbarItemGroup(placement: .primaryAction) {
+                playStopButton
             }
-            .onReceive(NotificationCenter.default.publisher(for: .awSessionTogglePlayback)) { _ in
-                togglePlayback()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .awToggleTerminal)) { _ in
+            withAnimation(.easeInOut(duration: 0.2)) {
+                terminalDividerState.toggle()
             }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .awSessionTogglePlayback)) { _ in
+            togglePlayback()
+        }
             .task(id: session.id) {
                 selectedTab = .iterations
                 phaseExpansion = [:]
@@ -125,6 +104,26 @@ struct SessionDetailView<Header: View>: View {
     }
 
     @ViewBuilder
+    private var terminalPane: some View {
+        TerminalHost(session: session)
+    }
+
+    @ViewBuilder
+    private var tabPane: some View {
+        VStack(spacing: 0) {
+            if let stepID = reviewPauseStepID {
+                Divider()
+                ReviewPausePanel(
+                    stepID: stepID,
+                    progressDirectoryURL: progressDirectoryURL,
+                    onContinue: continueExecution
+                )
+            }
+            tabbedBody
+        }
+    }
+
+    @ViewBuilder
     private var tabbedBody: some View {
         TabView(selection: $selectedTab) {
             IterationsView(
@@ -148,6 +147,16 @@ struct SessionDetailView<Header: View>: View {
             ExecutionLogTabView(sessionID: session.id)
                 .tabItem { Label("Log", systemImage: "list.bullet.rectangle") }
                 .tag(SessionTab.log)
+
+            WorkflowTab(
+                session: session,
+                workflow: workflow,
+                workflowEngine: workflowEngine,
+                phaseExpansion: $phaseExpansion,
+                onRunFromHere: { runFromHere(phaseIndex: $0, stepIndex: $1) }
+            )
+                .tabItem { Label("Workflow", systemImage: "arrow.triangle.branch") }
+                .tag(SessionTab.workflow)
         }
         .background(TabTooltipSetter(tooltips: [
             "Iterations (⌘1)",
@@ -424,7 +433,7 @@ struct SessionDetailView<Header: View>: View {
 
     private func terminalToolIdentifier(forPhaseIndex phaseIndex: Int?) -> String {
         guard let phaseIndex, let workflow, phaseIndex < workflow.phases.count else {
-            return engineManager.defaultAgent
+            return ProcessRunnerFactory.toolIdentifier(for: settingsStore.settings.buildCLI)
         }
         switch workflow.phases[phaseIndex].name.lowercased() {
         case "plan":
@@ -432,7 +441,7 @@ struct SessionDetailView<Header: View>: View {
         case "verify":
             return ProcessRunnerFactory.toolIdentifier(for: settingsStore.settings.verifyCLI)
         default:
-            return engineManager.defaultAgent
+            return ProcessRunnerFactory.toolIdentifier(for: settingsStore.settings.buildCLI)
         }
     }
 
