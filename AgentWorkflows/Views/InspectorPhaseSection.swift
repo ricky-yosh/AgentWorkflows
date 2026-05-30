@@ -25,17 +25,34 @@ struct InspectorPhaseSection: View {
         } label: {
             HStack(spacing: 6) {
                 StatusSymbolImage(symbolName: phaseStatus.symbolName, color: phaseStatus.color)
-                Text(phase.name)
-                    .font(.subheadline)
-                    .fontWeight(phaseIndex == currentPhaseIndex ? .semibold : .regular)
-                    .foregroundStyle(phaseIndex == currentPhaseIndex ? .primary : .secondary)
-                if phaseIndex == currentPhaseIndex {
-                    Text("●")
-                        .font(.caption2)
-                        .foregroundStyle(Color.accentColor)
-                        .help("Active phase")
+                VStack(alignment: .leading, spacing: 1) {
+                    HStack(spacing: 4) {
+                        Text(phase.name)
+                            .font(.subheadline)
+                            .fontWeight(phaseIndex == currentPhaseIndex ? .semibold : .regular)
+                            .foregroundStyle(phaseIndex == currentPhaseIndex ? .primary : .secondary)
+                        if phaseIndex == currentPhaseIndex {
+                            Text("●")
+                                .font(.caption2)
+                                .foregroundStyle(Color.accentColor)
+                                .help("Active phase")
+                        }
+                    }
+                    Text(stepCountLabel)
+                            .font(.system(size: 11))
+                            .foregroundStyle(.secondary)
                 }
             }
+        }
+    }
+
+    private var stepCountLabel: String {
+        let completedInPhase = phase.steps.filter { completedStepIDs.contains($0.id) }.count
+        let totalInPhase = phase.steps.count
+        if completedInPhase == totalInPhase {
+            return "\(completedInPhase) of \(totalInPhase) steps completed"
+        } else {
+            return "\(completedInPhase) of \(totalInPhase) steps"
         }
     }
 

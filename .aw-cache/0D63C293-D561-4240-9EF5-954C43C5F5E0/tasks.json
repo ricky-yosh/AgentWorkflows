@@ -367,7 +367,7 @@
     ],
     "effort": "low",
     "blocked_by": [],
-    "passes": false,
+    "passes": true,
     "context": {
       "what_happened": "Phase headers only show the phase name with no step count summary",
       "what_expected": "Each phase header should show 'N of M steps completed' below the phase name",
