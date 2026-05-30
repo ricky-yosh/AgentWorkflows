@@ -170,10 +170,12 @@ private struct SessionDiffFileView: View {
                 VStack(alignment: .leading, spacing: 0) {
                     if !hunk.contextLine.isEmpty {
                         Text(hunk.contextLine)
-                            .font(.system(.callout, design: .monospaced))
-                            .foregroundStyle(.secondary)
-                            .padding(.horizontal, 8)
-                            .padding(.vertical, 2)
+                            .font(.system(size: 11, design: .monospaced))
+                            .foregroundStyle(Color(hex: "#0366d6"))
+                            .padding(.horizontal, 14)
+                            .padding(.vertical, 6)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .background(Color(hex: "#f1f8ff"))
                     }
                     ForEach(Array(hunk.lines.enumerated()), id: \.offset) { _, line in
                         SessionDiffLineRow(line: line)

@@ -282,7 +282,7 @@
     ],
     "effort": "low",
     "blocked_by": [],
-    "passes": false,
+    "passes": true,
     "context": {
       "what_happened": "Hunk headers render as plain secondary text with no background color",
       "what_expected": "Hunk headers should have a light blue background with blue monospaced text",
