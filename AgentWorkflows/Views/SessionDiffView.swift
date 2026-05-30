@@ -193,14 +193,6 @@ private struct SessionDiffFileView: View {
 private struct SessionDiffLineRow: View {
     let line: DiffLine
 
-    private var prefix: String {
-        switch line.kind {
-        case .context: return "  "
-        case .added: return "+ "
-        case .removed: return "- "
-        }
-    }
-
     private var rowColor: Color {
         switch line.kind {
         case .context: return .clear
@@ -217,12 +209,42 @@ private struct SessionDiffLineRow: View {
         }
     }
 
+    private var marker: String {
+        switch line.kind {
+        case .context: return " "
+        case .added: return "+"
+        case .removed: return "-"
+        }
+    }
+
+    private var markerColor: Color {
+        switch line.kind {
+        case .context: return .clear
+        case .added: return .green
+        case .removed: return .red
+        }
+    }
+
     var body: some View {
         HStack(alignment: .firstTextBaseline, spacing: 0) {
-            Text(prefix)
-                .font(.system(.callout, design: .monospaced))
-                .foregroundStyle(textColor)
-                .frame(width: 20, alignment: .leading)
+            // Old line number column (40px)
+            Text(line.oldLineNumber.map { "\($0)" } ?? "")
+                .font(.system(size: 11, design: .monospaced))
+                .foregroundStyle(.tertiary)
+                .frame(width: 40, alignment: .trailing)
+                .allowsHitTesting(false)
+            // New line number column (40px)
+            Text(line.newLineNumber.map { "\($0)" } ?? "")
+                .font(.system(size: 11, design: .monospaced))
+                .foregroundStyle(.tertiary)
+                .frame(width: 40, alignment: .trailing)
+                .allowsHitTesting(false)
+            // Marker column (16px)
+            Text(marker)
+                .font(.system(size: 11, design: .monospaced).weight(.semibold))
+                .foregroundStyle(markerColor)
+                .frame(width: 16, alignment: .center)
+            // Line text
             Text(line.text.isEmpty ? " " : line.text)
                 .font(.system(.callout, design: .monospaced))
                 .foregroundStyle(textColor)

@@ -14,4 +14,6 @@ struct DiffLine: Equatable {
     enum Kind { case added, removed, context }
     let kind: Kind
     let text: String
+    let oldLineNumber: Int?
+    let newLineNumber: Int?
 }

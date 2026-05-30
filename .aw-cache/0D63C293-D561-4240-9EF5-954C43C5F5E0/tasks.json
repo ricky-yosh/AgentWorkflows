@@ -261,7 +261,7 @@
     ],
     "effort": "medium",
     "blocked_by": [],
-    "passes": false,
+    "passes": true,
     "context": {
       "what_happened": "Diff lines only show a '+ '/ '- '/ '  ' prefix with no line numbers",
       "what_expected": "Each diff line should have two number columns (old/new) with a marker column, matching the prototype's full diff layout",
