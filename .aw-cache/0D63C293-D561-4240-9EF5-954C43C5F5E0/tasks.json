@@ -304,7 +304,7 @@
     ],
     "effort": "low",
     "blocked_by": [],
-    "passes": false,
+    "passes": true,
     "context": {
       "what_happened": "The diff header only shows the scope picker with no aggregate change statistics",
       "what_expected": "The diff header should show total additions and removals counts next to the scope picker",

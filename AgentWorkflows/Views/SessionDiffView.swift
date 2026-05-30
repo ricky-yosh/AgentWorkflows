@@ -14,6 +14,14 @@ struct SessionDiffView: View {
     @State private var fileDiffs: [FileDiff] = []
     @State private var loadError: String?
 
+    private var totalAdditions: Int {
+        fileDiffs.reduce(0) { $0 + $1.hunks.reduce(0) { $0 + $1.lines.filter { $0.kind == .added }.count } }
+    }
+
+    private var totalRemovals: Int {
+        fileDiffs.reduce(0) { $0 + $1.hunks.reduce(0) { $0 + $1.lines.filter { $0.kind == .removed }.count } }
+    }
+
     enum Scope: String, CaseIterable, Identifiable {
         case lastCommit
         case fullSession
@@ -30,13 +38,28 @@ struct SessionDiffView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Picker("Scope", selection: $scope) {
-                ForEach(Scope.allCases) { scope in
-                    Text(scope.label).tag(scope)
+            HStack {
+                Picker("Scope", selection: $scope) {
+                    ForEach(Scope.allCases) { scope in
+                        Text(scope.label).tag(scope)
+                    }
+                }
+                .pickerStyle(.segmented)
+                .labelsHidden()
+
+                Spacer()
+
+                if !fileDiffs.isEmpty {
+                    HStack(spacing: 8) {
+                        Text("+\(totalAdditions)")
+                            .font(.system(size: 11, design: .monospaced))
+                            .foregroundStyle(Color(hex: "#22863a"))
+                        Text("-\(totalRemovals)")
+                            .font(.system(size: 11, design: .monospaced))
+                            .foregroundStyle(Color(hex: "#cb2431"))
+                    }
                 }
             }
-            .pickerStyle(.segmented)
-            .labelsHidden()
             .padding(.horizontal)
             .padding(.top, 8)
 
