@@ -36,12 +36,21 @@ struct InspectorStepRow: View {
     let onRunFromHere: () -> Void
 
     var body: some View {
-        HStack(spacing: 6) {
+        HStack(alignment: .top, spacing: 6) {
             StatusSymbolImage(symbolName: status.symbolName, color: status.color)
                 .frame(width: 16)
-            Text(step.displayName)
-                .font(.body)
-                .lineLimit(1)
+                .padding(.top, 2)
+            VStack(alignment: .leading, spacing: 1) {
+                Text(step.displayName)
+                    .font(.body)
+                    .lineLimit(1)
+                if let description = step.description, !description.isEmpty {
+                    Text(description)
+                        .font(.system(size: 11))
+                        .foregroundStyle(.secondary)
+                        .lineLimit(2)
+                }
+            }
             Spacer(minLength: 4)
             Button(action: onRunFromHere) {
                 Image(systemName: "play.circle")

@@ -412,7 +412,7 @@
     ],
     "effort": "low",
     "blocked_by": [],
-    "passes": false,
+    "passes": true,
     "context": {
       "what_happened": "Step rows only show the step display name with no description",
       "what_expected": "Each step row should show a description line (e.g., 'Interview and refine requirements') below the step name",
