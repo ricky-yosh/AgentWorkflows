@@ -405,6 +405,21 @@ private struct TaskGroupView: View {
         return iterations.contains { $0.id == id }
     }
 
+    private var statusText: String {
+        if task.passes { return "Completed" }
+        return iterations.isEmpty ? "Pending" : "In Progress"
+    }
+
+    private var statusColors: (bg: Color, fg: Color) {
+        if task.passes {
+            return (Color(hex: "#e8f5e9"), Color(hex: "#2e7d32"))
+        } else if iterations.isEmpty {
+            return (Color(hex: "#f5f5f5"), Color(hex: "#757575"))
+        } else {
+            return (Color(hex: "#e3f2fd"), Color(hex: "#1565c0"))
+        }
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             taskHeader
@@ -454,12 +469,21 @@ private struct TaskGroupView: View {
 
             Spacer()
 
+            Text(statusText)
+                .font(.system(size: 10))
+                .fontWeight(.medium)
+                .foregroundStyle(statusColors.fg)
+                .padding(.horizontal, 6)
+                .padding(.vertical, 1)
+                .background(statusColors.bg, in: RoundedRectangle(cornerRadius: 4))
+
             if let effort = task.effort {
                 Text(effort)
                     .font(.system(size: 10))
+                    .fontWeight(.medium)
                     .foregroundStyle(Color(hex: "#7b1fa2"))
                     .padding(.horizontal, 6)
-                    .padding(.vertical, 2)
+                    .padding(.vertical, 1)
                     .background(Color(hex: "#f3e5f5"), in: RoundedRectangle(cornerRadius: 4))
             }
 
