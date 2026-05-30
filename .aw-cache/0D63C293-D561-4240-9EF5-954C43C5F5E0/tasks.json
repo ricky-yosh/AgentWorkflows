@@ -67,7 +67,10 @@
       "The app builds and runs without errors"
     ],
     "effort": "high",
-    "blocked_by": [1, 2],
+    "blocked_by": [
+      1,
+      2
+    ],
     "passes": true
   },
   {
@@ -85,7 +88,10 @@
       "The old WorkflowInspector drawer is fully removed from the view hierarchy"
     ],
     "effort": "medium",
-    "blocked_by": [1, 4],
+    "blocked_by": [
+      1,
+      4
+    ],
     "passes": true
   },
   {
@@ -100,7 +106,10 @@
       "The old SessionHeaderStatus is no longer rendered anywhere in the view hierarchy"
     ],
     "effort": "medium",
-    "blocked_by": [3, 4],
+    "blocked_by": [
+      3,
+      4
+    ],
     "passes": true
   },
   {
@@ -115,7 +124,9 @@
       "No keyboard shortcut maps to the removed terminal tab case"
     ],
     "effort": "low",
-    "blocked_by": [5],
+    "blocked_by": [
+      5
+    ],
     "passes": true
   },
   {
@@ -137,7 +148,11 @@
     "context": {
       "what_happened": "Iteration transcript events show colored text and arrows but no distinct badge pills for event types",
       "what_expected": "Each event line should have a small colored badge pill labeling the event type (assistant, tool, result) matching the prototype design",
-      "steps_to_reproduce": ["Open a session with completed iterations", "Expand an iteration card to see the transcript", "Observe event lines have no type badge, only colored text"],
+      "steps_to_reproduce": [
+        "Open a session with completed iterations",
+        "Expand an iteration card to see the transcript",
+        "Observe event lines have no type badge, only colored text"
+      ],
       "notes": "Reference prototype: prototypes/ui-redesign/01-iterations.html lines 571-581. EventLineView in IterationCardView.swift handles event rendering."
     }
   },
@@ -157,7 +172,11 @@
     "context": {
       "what_happened": "Effort badges on task groups use a gray tertiary capsule style",
       "what_expected": "Effort badges should use a purple pill style with light purple background and dark purple text",
-      "steps_to_reproduce": ["Open the Iterations tab", "Look at task group headers with effort badges (S/M/L)", "Observe they are gray instead of purple"],
+      "steps_to_reproduce": [
+        "Open the Iterations tab",
+        "Look at task group headers with effort badges (S/M/L)",
+        "Observe they are gray instead of purple"
+      ],
       "notes": "Reference prototype: prototypes/ui-redesign/01-iterations.html lines 477-484. TaskGroupView in IterationCardView.swift renders the effort badge."
     }
   },
@@ -179,7 +198,10 @@
     "context": {
       "what_happened": "Task group headers only show a status icon (checkmark/circle) with no text badge indicating the task state",
       "what_expected": "Each task group header should show a colored text badge (Completed/In Progress/Pending) next to the effort badge",
-      "steps_to_reproduce": ["Open the Iterations tab with a tasks.json that has completed, active, and pending tasks", "Observe task group headers have no status text badge"],
+      "steps_to_reproduce": [
+        "Open the Iterations tab with a tasks.json that has completed, active, and pending tasks",
+        "Observe task group headers have no status text badge"
+      ],
       "notes": "Reference prototype: prototypes/ui-redesign/01-iterations.html lines 467-476. TaskGroupView in IterationCardView.swift needs the badge added."
     }
   },
@@ -201,7 +223,11 @@
     "context": {
       "what_happened": "The active task group header shows a plain iteration count with no live indicator",
       "what_expected": "The active task group header should show a pulsing green dot and '(live)' text next to the iteration count",
-      "steps_to_reproduce": ["Start a session running the Build phase", "Open the Iterations tab", "Observe the active task group header has no live indicator"],
+      "steps_to_reproduce": [
+        "Start a session running the Build phase",
+        "Open the Iterations tab",
+        "Observe the active task group header has no live indicator"
+      ],
       "notes": "Reference prototype: prototypes/ui-redesign/01-iterations.html lines 906-909. TaskGroupView in IterationCardView.swift renders the header."
     }
   },
@@ -222,7 +248,10 @@
     "context": {
       "what_happened": "Pending task groups render at full opacity, same as active and completed groups",
       "what_expected": "Pending task groups should be visually de-emphasized at 60% opacity",
-      "steps_to_reproduce": ["Open the Iterations tab with tasks that have pending items", "Observe pending task groups are at full opacity"],
+      "steps_to_reproduce": [
+        "Open the Iterations tab with tasks that have pending items",
+        "Observe pending task groups are at full opacity"
+      ],
       "notes": "Reference prototype: prototypes/ui-redesign/01-iterations.html lines 939-950. TaskGroupView in IterationCardView.swift needs opacity modifier."
     }
   },
@@ -242,7 +271,10 @@
     "context": {
       "what_happened": "Iteration number badges (Iter #1, etc.) use a gray capsule style",
       "what_expected": "Iteration number badges should use blue text on a light blue pill background",
-      "steps_to_reproduce": ["Open the Iterations tab with completed iterations", "Observe iteration number badges are gray instead of blue"],
+      "steps_to_reproduce": [
+        "Open the Iterations tab with completed iterations",
+        "Observe iteration number badges are gray instead of blue"
+      ],
       "notes": "Reference prototype: prototypes/ui-redesign/01-iterations.html lines 512-519. IterationCardView.swift renders the badge in the header."
     }
   },
@@ -265,7 +297,10 @@
     "context": {
       "what_happened": "Diff lines only show a '+ '/ '- '/ '  ' prefix with no line numbers",
       "what_expected": "Each diff line should have two number columns (old/new) with a marker column, matching the prototype's full diff layout",
-      "steps_to_reproduce": ["Open the Diff tab with changes to view", "Observe diff lines have no line number columns"],
+      "steps_to_reproduce": [
+        "Open the Diff tab with changes to view",
+        "Observe diff lines have no line number columns"
+      ],
       "notes": "Reference prototype: prototypes/ui-redesign/02-diff.html lines 250-274. SessionDiffLineRow in SessionDiffView.swift renders each line."
     }
   },
@@ -286,7 +321,10 @@
     "context": {
       "what_happened": "Hunk headers render as plain secondary text with no background color",
       "what_expected": "Hunk headers should have a light blue background with blue monospaced text",
-      "steps_to_reproduce": ["Open the Diff tab with changes that have hunk headers", "Observe hunk headers are plain text without blue styling"],
+      "steps_to_reproduce": [
+        "Open the Diff tab with changes that have hunk headers",
+        "Observe hunk headers are plain text without blue styling"
+      ],
       "notes": "Reference prototype: prototypes/ui-redesign/02-diff.html lines 241-244. SessionDiffFileView in SessionDiffView.swift renders hunk headers."
     }
   },
@@ -308,7 +346,10 @@
     "context": {
       "what_happened": "The diff header only shows the scope picker with no aggregate change statistics",
       "what_expected": "The diff header should show total additions and removals counts next to the scope picker",
-      "steps_to_reproduce": ["Open the Diff tab with changes", "Observe no stats are shown next to the scope segmented control"],
+      "steps_to_reproduce": [
+        "Open the Diff tab with changes",
+        "Observe no stats are shown next to the scope segmented control"
+      ],
       "notes": "Reference prototype: prototypes/ui-redesign/02-diff.html lines 403-406. SessionDiffView.swift renders the header."
     }
   },
@@ -329,7 +370,10 @@
     "context": {
       "what_happened": "Diff file headers show only the file path with no per-file change statistics",
       "what_expected": "Each file header should show per-file addition and removal counts",
-      "steps_to_reproduce": ["Open the Diff tab with multiple changed files", "Observe file headers show no per-file stats"],
+      "steps_to_reproduce": [
+        "Open the Diff tab with multiple changed files",
+        "Observe file headers show no per-file stats"
+      ],
       "notes": "Reference prototype: prototypes/ui-redesign/02-diff.html lines 413-416. SessionDiffFileView in SessionDiffView.swift renders file headers."
     }
   },
@@ -350,7 +394,10 @@
     "context": {
       "what_happened": "The Workflow tab jumps straight into the phase list with no header",
       "what_expected": "The Workflow tab should show a 'Workflow Progress' title and session name subtitle above the phase list",
-      "steps_to_reproduce": ["Select a session and open the Workflow tab", "Observe no header is shown above the phase list"],
+      "steps_to_reproduce": [
+        "Select a session and open the Workflow tab",
+        "Observe no header is shown above the phase list"
+      ],
       "notes": "Reference prototype: prototypes/ui-redesign/03-workflow.html lines 415-418. WorkflowTab.swift renders the content."
     }
   },
@@ -371,7 +418,10 @@
     "context": {
       "what_happened": "Phase headers only show the phase name with no step count summary",
       "what_expected": "Each phase header should show 'N of M steps completed' below the phase name",
-      "steps_to_reproduce": ["Open the Workflow tab on a session with workflow progress", "Observe phase headers have no step count line"],
+      "steps_to_reproduce": [
+        "Open the Workflow tab on a session with workflow progress",
+        "Observe phase headers have no step count line"
+      ],
       "notes": "Reference prototype: prototypes/ui-redesign/03-workflow.html lines 426-427. InspectorPhaseSection renders phase headers."
     }
   },
@@ -394,7 +444,10 @@
     "context": {
       "what_happened": "Phase headers show only a status icon with no text badge indicating the phase state",
       "what_expected": "Each phase header should show a colored text badge (Completed/Current/Pending)",
-      "steps_to_reproduce": ["Open the Workflow tab on a session with workflow progress", "Observe phase headers have no status text badge"],
+      "steps_to_reproduce": [
+        "Open the Workflow tab on a session with workflow progress",
+        "Observe phase headers have no status text badge"
+      ],
       "notes": "Reference prototype: prototypes/ui-redesign/03-workflow.html lines 207-212. InspectorPhaseSection renders phase headers."
     }
   },
@@ -416,7 +469,10 @@
     "context": {
       "what_happened": "Step rows only show the step display name with no description",
       "what_expected": "Each step row should show a description line (e.g., 'Interview and refine requirements') below the step name",
-      "steps_to_reproduce": ["Open the Workflow tab on a session", "Observe step rows show only the name with no description"],
+      "steps_to_reproduce": [
+        "Open the Workflow tab on a session",
+        "Observe step rows show only the name with no description"
+      ],
       "notes": "Reference prototype: prototypes/ui-redesign/03-workflow.html lines 238-239. InspectorStepRow renders step rows. Step descriptions would need to come from the Workflow model or be derived from the step type."
     }
   },
@@ -438,7 +494,11 @@
     "context": {
       "what_happened": "The Mark Complete button shows keyboard shortcut as plain text without badge styling",
       "what_expected": "The shortcut text should be rendered as a styled pill badge matching the prototype design",
-      "steps_to_reproduce": ["Open the Workflow tab", "Look at the 'Mark step as complete' button at the bottom", "Observe the shortcut text is plain rather than a styled badge"],
+      "steps_to_reproduce": [
+        "Open the Workflow tab",
+        "Look at the 'Mark step as complete' button at the bottom",
+        "Observe the shortcut text is plain rather than a styled badge"
+      ],
       "notes": "Reference prototype: prototypes/ui-redesign/03-workflow.html lines 276-279. WorkflowTab.swift renders the button."
     }
   },
@@ -449,19 +509,23 @@
     "description": "Add terminal header bar with icon, title showing the agent name, and restart button",
     "acceptance_criteria": [
       "Terminal pane shows a 36px header bar at the top with dark background (#2d2d2d)",
-      "Header shows a keyboard icon and title text like 'Terminal — claude'",
-      "Header shows a restart button (⟳) on the right side",
+      "Header shows a keyboard icon and title text like 'Terminal \u2014 claude'",
+      "Header shows a restart button (\u27f3) on the right side",
       "Restart button has hover state with light background",
       "Header has a subtle bottom border (0.5px, rgba white 0.06)",
       "The app builds and runs without errors"
     ],
     "effort": "low",
     "blocked_by": [],
-    "passes": false,
+    "passes": true,
     "context": {
-      "what_happened": "The terminal pane has no header bar — the terminal content starts immediately",
+      "what_happened": "The terminal pane has no header bar \u2014 the terminal content starts immediately",
       "what_expected": "The terminal pane should have a header bar showing the agent name and a restart button",
-      "steps_to_reproduce": ["Select a session", "Look at the terminal pane on the left", "Observe no header bar above the terminal content"],
+      "steps_to_reproduce": [
+        "Select a session",
+        "Look at the terminal pane on the left",
+        "Observe no header bar above the terminal content"
+      ],
       "notes": "Reference prototype: prototypes/ui-redesign/01-iterations.html lines 264-306. TerminalHost.swift wraps the terminal view."
     }
   }
