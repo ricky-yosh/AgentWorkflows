@@ -420,6 +420,8 @@ private struct TaskGroupView: View {
         }
     }
 
+    private var isPending: Bool { !task.passes && iterations.isEmpty }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             taskHeader
@@ -443,6 +445,7 @@ private struct TaskGroupView: View {
                 }
             }
         }
+        .opacity(isPending ? 0.6 : 1.0)
         .onChange(of: isActiveGroup) { _, active in
             if active {
                 withAnimation(.easeInOut(duration: 0.18)) { isExpanded = true }

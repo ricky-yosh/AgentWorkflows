@@ -218,7 +218,7 @@
     ],
     "effort": "low",
     "blocked_by": [],
-    "passes": false,
+    "passes": true,
     "context": {
       "what_happened": "Pending task groups render at full opacity, same as active and completed groups",
       "what_expected": "Pending task groups should be visually de-emphasized at 60% opacity",
