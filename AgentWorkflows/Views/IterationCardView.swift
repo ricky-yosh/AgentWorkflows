@@ -203,40 +203,65 @@ private struct EventLineView: View {
     var body: some View {
         switch event {
         case .assistantText(let text):
-            Text(text)
-                .font(.system(.callout, design: .monospaced))
-                .foregroundStyle(.primary)
-                .textSelection(.enabled)
-                .frame(maxWidth: .infinity, alignment: .leading)
+            HStack(spacing: 8) {
+                EventTypeBadge(label: "assistant", bg: Color(hex: "#e8f5e9"), fg: Color(hex: "#2e7d32"))
+                Text(text)
+                    .font(.system(.callout, design: .monospaced))
+                    .foregroundStyle(.primary)
+                    .textSelection(.enabled)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
 
         case .toolUse(let name, let summary):
-            HStack(spacing: 4) {
-                Text("▶ \(name)")
-                    .font(.callout)
-                    .fontWeight(.medium)
-                    .foregroundStyle(.blue)
-                if !summary.isEmpty {
-                    Text(summary)
-                        .font(.system(.callout, design: .monospaced))
-                        .foregroundStyle(.secondary)
-                        .lineLimit(1)
+            HStack(spacing: 8) {
+                EventTypeBadge(label: "tool", bg: Color(hex: "#e3f2fd"), fg: Color(hex: "#1565c0"))
+                HStack(spacing: 4) {
+                    Text("▶ \(name)")
+                        .font(.callout)
+                        .fontWeight(.medium)
+                        .foregroundStyle(.blue)
+                    if !summary.isEmpty {
+                        Text(summary)
+                            .font(.system(.callout, design: .monospaced))
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                    }
                 }
             }
 
         case .toolResult(let summary, _):
-            HStack(spacing: 4) {
-                Text("◀")
-                    .font(.callout)
-                    .foregroundStyle(.green)
-                Text(summary)
-                    .font(.system(.callout, design: .monospaced))
-                    .foregroundStyle(.secondary)
-                    .lineLimit(2)
+            HStack(spacing: 8) {
+                EventTypeBadge(label: "result", bg: Color(hex: "#f3e5f5"), fg: Color(hex: "#7b1fa2"))
+                HStack(spacing: 4) {
+                    Text("◀")
+                        .font(.callout)
+                        .foregroundStyle(.green)
+                    Text(summary)
+                        .font(.system(.callout, design: .monospaced))
+                        .foregroundStyle(.secondary)
+                        .lineLimit(2)
+                }
             }
 
         case .sessionStarted, .modelIdentified, .iterationFinished:
             EmptyView()
         }
+    }
+}
+
+private struct EventTypeBadge: View {
+    let label: String
+    let bg: Color
+    let fg: Color
+
+    var body: some View {
+        Text(label)
+            .font(.system(size: 10))
+            .fontWeight(.medium)
+            .foregroundStyle(fg)
+            .padding(.horizontal, 4)
+            .padding(.vertical, 1)
+            .background(bg, in: RoundedRectangle(cornerRadius: 2))
     }
 }
 
