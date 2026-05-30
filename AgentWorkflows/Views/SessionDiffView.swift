@@ -180,14 +180,39 @@ nonisolated struct SystemGitDiffRunner: GitDiffRunner {
 private struct SessionDiffFileView: View {
     let file: FileDiff
 
+    private var additions: Int {
+        file.hunks.reduce(0) { $0 + $1.lines.filter { $0.kind == .added }.count }
+    }
+
+    private var removals: Int {
+        file.hunks.reduce(0) { $0 + $1.lines.filter { $0.kind == .removed }.count }
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
-            Text(file.filePath)
-                .font(.system(.subheadline, design: .monospaced).weight(.semibold))
-                .padding(.vertical, 4)
-                .padding(.horizontal, 8)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .background(Color(nsColor: .underPageBackgroundColor))
+            // File header with per-file stats
+            HStack {
+                Text(file.filePath)
+                    .font(.system(.subheadline, design: .monospaced).weight(.semibold))
+
+                Spacer()
+
+                HStack(spacing: 8) {
+                    if additions > 0 {
+                        Text("+\(additions)")
+                            .font(.system(size: 10, design: .monospaced))
+                            .foregroundStyle(Color(hex: "#22863a"))
+                    }
+                    if removals > 0 {
+                        Text("-\(removals)")
+                            .font(.system(size: 10, design: .monospaced))
+                            .foregroundStyle(Color(hex: "#cb2431"))
+                    }
+                }
+            }
+            .padding(.vertical, 4)
+            .padding(.horizontal, 8)
+            .background(Color(nsColor: .underPageBackgroundColor))
 
             ForEach(Array(file.hunks.enumerated()), id: \.offset) { _, hunk in
                 VStack(alignment: .leading, spacing: 0) {
