@@ -238,7 +238,7 @@
     ],
     "effort": "low",
     "blocked_by": [],
-    "passes": false,
+    "passes": true,
     "context": {
       "what_happened": "Iteration number badges (Iter #1, etc.) use a gray capsule style",
       "what_expected": "Iteration number badges should use blue text on a light blue pill background",

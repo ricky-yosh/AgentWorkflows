@@ -52,10 +52,10 @@ struct IterationCardView: View {
                 .font(.caption)
                 .fontWeight(.semibold)
                 .monospacedDigit()
-                .foregroundStyle(.secondary)
-                .padding(.horizontal, 6)
+                .foregroundStyle(Color(hex: "#007aff"))
+                .padding(.horizontal, 8)
                 .padding(.vertical, 2)
-                .background(.fill.secondary, in: Capsule())
+                .background(Color(hex: "#e3f2fd"), in: RoundedRectangle(cornerRadius: 4))
 
             if let taskID = record.taskID {
                 Text("#\(taskID)")
