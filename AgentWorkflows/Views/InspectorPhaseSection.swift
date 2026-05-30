@@ -42,6 +42,14 @@ struct InspectorPhaseSection: View {
                             .font(.system(size: 11))
                             .foregroundStyle(.secondary)
                 }
+                Spacer(minLength: 4)
+                Text(phaseStatusBadgeText)
+                    .font(.system(size: 10))
+                    .fontWeight(.medium)
+                    .foregroundStyle(phaseStatusBadgeColors.fg)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 2)
+                    .background(phaseStatusBadgeColors.bg, in: RoundedRectangle(cornerRadius: 4))
             }
         }
     }
@@ -54,6 +62,22 @@ struct InspectorPhaseSection: View {
         } else {
             return "\(completedInPhase) of \(totalInPhase) steps"
         }
+    }
+
+    private var phaseStatusBadgeText: String {
+        if phaseIndex < currentPhaseIndex { return "Completed" }
+        if phaseIndex == currentPhaseIndex { return "Current" }
+        return "Pending"
+    }
+
+    private var phaseStatusBadgeColors: (bg: Color, fg: Color) {
+        if phaseIndex < currentPhaseIndex {
+            return (Color(hex: "#e8f5e9"), Color(hex: "#2e7d32"))
+        }
+        if phaseIndex == currentPhaseIndex {
+            return (Color(hex: "#e3f2fd"), Color(hex: "#1565c0"))
+        }
+        return (Color(hex: "#f5f5f5"), Color(hex: "#757575"))
     }
 
     private var phaseStatus: InspectorStepStatus {

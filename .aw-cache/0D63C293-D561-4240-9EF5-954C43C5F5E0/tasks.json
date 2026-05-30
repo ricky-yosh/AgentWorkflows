@@ -390,7 +390,7 @@
     ],
     "effort": "low",
     "blocked_by": [],
-    "passes": false,
+    "passes": true,
     "context": {
       "what_happened": "Phase headers show only a status icon with no text badge indicating the phase state",
       "what_expected": "Each phase header should show a colored text badge (Completed/Current/Pending)",
