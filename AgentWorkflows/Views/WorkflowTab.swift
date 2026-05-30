@@ -43,8 +43,14 @@ struct WorkflowTab: View {
                     Text("Mark step as complete")
                         .fontWeight(.semibold)
                     Text("\u{21E7}\u{2318}\u{21A9}")
-                        .font(.caption)
-                        .foregroundStyle(.white.opacity(0.75))
+                        .font(.system(size: 10, design: .monospaced))
+                        .padding(.vertical, 1)
+                        .padding(.horizontal, 6)
+                        .background(
+                            RoundedRectangle(cornerRadius: 3)
+                                .fill(Color.white.opacity(0.15))
+                        )
+                        .opacity(0.7)
                 }
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 10)

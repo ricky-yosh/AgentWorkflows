@@ -434,7 +434,7 @@
     ],
     "effort": "low",
     "blocked_by": [],
-    "passes": false,
+    "passes": true,
     "context": {
       "what_happened": "The Mark Complete button shows keyboard shortcut as plain text without badge styling",
       "what_expected": "The shortcut text should be rendered as a styled pill badge matching the prototype design",
