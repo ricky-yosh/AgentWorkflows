@@ -456,11 +456,11 @@ private struct TaskGroupView: View {
 
             if let effort = task.effort {
                 Text(effort)
-                    .font(.caption2)
-                    .foregroundStyle(.tertiary)
-                    .padding(.horizontal, 5)
-                    .padding(.vertical, 1)
-                    .background(.fill.tertiary, in: Capsule())
+                    .font(.system(size: 10))
+                    .foregroundStyle(Color(hex: "#7b1fa2"))
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 2)
+                    .background(Color(hex: "#f3e5f5"), in: RoundedRectangle(cornerRadius: 4))
             }
 
             if !iterations.isEmpty {
