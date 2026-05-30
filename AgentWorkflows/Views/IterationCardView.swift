@@ -488,10 +488,14 @@ private struct TaskGroupView: View {
             }
 
             if !iterations.isEmpty {
-                Text("\(iterations.count) iter\(iterations.count == 1 ? "" : "s")")
-                    .font(.caption2)
-                    .monospacedDigit()
-                    .foregroundStyle(.tertiary)
+                if isActiveGroup {
+                    LiveIndicator(count: iterations.count)
+                } else {
+                    Text("\(iterations.count) iter\(iterations.count == 1 ? "" : "s")")
+                        .font(.caption2)
+                        .monospacedDigit()
+                        .foregroundStyle(.tertiary)
+                }
             }
 
             if isExpandable {
@@ -546,6 +550,32 @@ private struct TaskGroupView: View {
         .padding(10)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(.fill.quaternary, in: RoundedRectangle(cornerRadius: 6))
+    }
+}
+
+// MARK: - LiveIndicator
+
+/// Pulsing green dot + "N iteration(s) (live)" shown on the active task group header.
+private struct LiveIndicator: View {
+    let count: Int
+    @State private var isPulsing = false
+
+    var body: some View {
+        HStack(spacing: 4) {
+            Circle()
+                .fill(Color(hex: "#34c759"))
+                .frame(width: 6, height: 6)
+                .opacity(isPulsing ? 0.4 : 1.0)
+            Text("\(count) iteration\(count == 1 ? "" : "s") (live)")
+                .font(.system(size: 10))
+                .fontWeight(.medium)
+                .foregroundStyle(Color(hex: "#34c759"))
+        }
+        .onAppear {
+            withAnimation(.easeInOut(duration: 0.75).repeatForever(autoreverses: true)) {
+                isPulsing = true
+            }
+        }
     }
 }
 

@@ -1,0 +1,468 @@
+[
+  {
+    "id": 1,
+    "type": "AFK",
+    "category": "schema",
+    "description": "Add .workflow case to SessionTab enum and remove .terminal case since the terminal becomes a permanent pane outside the tab bar",
+    "acceptance_criteria": [
+      "SessionTab has five cases: .iterations, .files, .diff, .log, .workflow",
+      "The .terminal case is removed from the enum",
+      "All switch statements over SessionTab compile without the .terminal case",
+      "The app builds and runs without errors"
+    ],
+    "effort": "low",
+    "blocked_by": [],
+    "passes": true
+  },
+  {
+    "id": 2,
+    "type": "AFK",
+    "category": "engine",
+    "description": "Create TerminalDivider state model with collapse/expand, resize clamping, UserDefaults persistence, and unit tests",
+    "acceptance_criteria": [
+      "Default terminal width is 320pt when no persisted value exists",
+      "Collapsing stores the current width and sets width to 0",
+      "Expanding restores the previously stored width",
+      "Dragging below 200pt clamps to 200pt",
+      "Dragging above 60 percent of window width clamps to 60 percent",
+      "Width and collapsed state persist across view re-renders via UserDefaults",
+      "All unit tests compile and pass"
+    ],
+    "effort": "medium",
+    "blocked_by": [],
+    "passes": true
+  },
+  {
+    "id": 3,
+    "type": "AFK",
+    "category": "ui",
+    "description": "Create SidebarSessionStatus view that shows expanded status for the active session in the sidebar, with unit tests for data computation",
+    "acceptance_criteria": [
+      "Shows state badge, phase name, iteration counter, task counter, and elapsed time",
+      "Iteration and task counters are only visible during the Build phase",
+      "Elapsed time is only visible when a run has started",
+      "Uses compact vertical layout that fits below a session row",
+      "Reads data from SessionRunStatus",
+      "Unit tests verify rendering for all five session states (idle, running, paused, completed, stalled)",
+      "Unit tests verify counters appear during Build phase and hide for other phases",
+      "All tests compile and pass"
+    ],
+    "effort": "medium",
+    "blocked_by": [],
+    "passes": true
+  },
+  {
+    "id": 4,
+    "type": "AFK",
+    "category": "ui",
+    "description": "Create three-column HSplitView layout in SessionDetailView with terminal as permanent left pane and existing TabView as right pane, separated by TerminalDivider",
+    "acceptance_criteria": [
+      "The session detail area shows terminal on the left and tabs on the right, separated by a draggable divider",
+      "The terminal is always visible by default alongside the active tab content",
+      "The divider shows a collapse button on hover and supports double-click to toggle",
+      "Pressing Cmd+backslash collapses the terminal pane to zero width and restores it to last-used width",
+      "The .inspector() modifier and inspectorPresented state are removed from SessionDetailView",
+      "The SessionHeaderStatus bar is removed from above the tabs",
+      "Minimum window size is increased to 900 by 500",
+      "The app builds and runs without errors"
+    ],
+    "effort": "high",
+    "blocked_by": [1, 2],
+    "passes": true
+  },
+  {
+    "id": 5,
+    "type": "AFK",
+    "category": "ui",
+    "description": "Create WorkflowTab view and integrate it into the right pane TabView, replacing the removed inspector drawer",
+    "acceptance_criteria": [
+      "The Workflow tab appears in the tab bar and shows the workflow phase list with step rows",
+      "Each phase is expandable and shows its steps with status icons",
+      "The Mark Step Complete button is present and functional",
+      "The Run From Here button appears on pending steps",
+      "The view fills available width instead of the old 240pt inspector constraint",
+      "The ReviewPausePanel appears above the tab content when the workflow pauses on a review step",
+      "The old WorkflowInspector drawer is fully removed from the view hierarchy"
+    ],
+    "effort": "medium",
+    "blocked_by": [1, 4],
+    "passes": true
+  },
+  {
+    "id": 6,
+    "type": "AFK",
+    "category": "ui",
+    "description": "Integrate SidebarSessionStatus into the sidebar for the active session row",
+    "acceptance_criteria": [
+      "The active session row in the sidebar shows expanded status below the session name",
+      "Inactive session rows remain compact with no expanded status",
+      "The expanded status updates in real time as the session runs",
+      "The old SessionHeaderStatus is no longer rendered anywhere in the view hierarchy"
+    ],
+    "effort": "medium",
+    "blocked_by": [3, 4],
+    "passes": true
+  },
+  {
+    "id": 7,
+    "type": "AFK",
+    "category": "ui",
+    "description": "Replace Toggle Inspector menu command with Toggle Terminal using Cmd+backslash and update tab keyboard shortcuts for the new five-tab layout",
+    "acceptance_criteria": [
+      "The View menu shows Toggle Terminal with Cmd+backslash instead of Toggle Inspector with Ctrl+Cmd+I",
+      "Pressing Cmd+backslash collapses the terminal when expanded and expands it when collapsed",
+      "Cmd+1 through Cmd+5 switch between Iterations, Files, Diff, Log, and Workflow tabs respectively",
+      "No keyboard shortcut maps to the removed terminal tab case"
+    ],
+    "effort": "low",
+    "blocked_by": [5],
+    "passes": true
+  },
+  {
+    "id": 8,
+    "type": "AFK",
+    "category": "ui",
+    "description": "Add colored event type badges (assistant/tool/tool-result) to each event line in the iteration transcript",
+    "acceptance_criteria": [
+      "Each assistant text event shows a green 'assistant' badge pill",
+      "Each tool use event shows a blue 'tool' badge pill",
+      "Each tool result event shows a purple 'result' badge pill",
+      "Badges are compact (10px font, 2px radius, 4px horizontal padding) with colored background and text",
+      "Badge colors: assistant=#e8f5e9/#2e7d32, tool=#e3f2fd/#1565c0, result=#f3e5f5/#7b1fa2",
+      "The app builds and runs without errors"
+    ],
+    "effort": "low",
+    "blocked_by": [],
+    "passes": true,
+    "context": {
+      "what_happened": "Iteration transcript events show colored text and arrows but no distinct badge pills for event types",
+      "what_expected": "Each event line should have a small colored badge pill labeling the event type (assistant, tool, result) matching the prototype design",
+      "steps_to_reproduce": ["Open a session with completed iterations", "Expand an iteration card to see the transcript", "Observe event lines have no type badge, only colored text"],
+      "notes": "Reference prototype: prototypes/ui-redesign/01-iterations.html lines 571-581. EventLineView in IterationCardView.swift handles event rendering."
+    }
+  },
+  {
+    "id": 9,
+    "type": "AFK",
+    "category": "ui",
+    "description": "Change effort badge styling from gray tertiary capsule to purple pill matching the prototype design",
+    "acceptance_criteria": [
+      "Effort badge uses purple background (#f3e5f5) and purple text (#7b1fa2)",
+      "Badge is a small pill (10px font, 4px radius, 6px horizontal padding)",
+      "The app builds and runs without errors"
+    ],
+    "effort": "low",
+    "blocked_by": [],
+    "passes": true,
+    "context": {
+      "what_happened": "Effort badges on task groups use a gray tertiary capsule style",
+      "what_expected": "Effort badges should use a purple pill style with light purple background and dark purple text",
+      "steps_to_reproduce": ["Open the Iterations tab", "Look at task group headers with effort badges (S/M/L)", "Observe they are gray instead of purple"],
+      "notes": "Reference prototype: prototypes/ui-redesign/01-iterations.html lines 477-484. TaskGroupView in IterationCardView.swift renders the effort badge."
+    }
+  },
+  {
+    "id": 10,
+    "type": "AFK",
+    "category": "ui",
+    "description": "Add status text badges (Completed/In Progress/Pending) to task group headers in the Iterations view",
+    "acceptance_criteria": [
+      "Completed task groups show a green 'Completed' badge pill",
+      "Active task groups show a blue 'In Progress' badge pill",
+      "Pending task groups show a gray 'Pending' badge pill",
+      "Badges use 10px font, 4px radius, and match prototype color scheme",
+      "The app builds and runs without errors"
+    ],
+    "effort": "low",
+    "blocked_by": [],
+    "passes": true,
+    "context": {
+      "what_happened": "Task group headers only show a status icon (checkmark/circle) with no text badge indicating the task state",
+      "what_expected": "Each task group header should show a colored text badge (Completed/In Progress/Pending) next to the effort badge",
+      "steps_to_reproduce": ["Open the Iterations tab with a tasks.json that has completed, active, and pending tasks", "Observe task group headers have no status text badge"],
+      "notes": "Reference prototype: prototypes/ui-redesign/01-iterations.html lines 467-476. TaskGroupView in IterationCardView.swift needs the badge added."
+    }
+  },
+  {
+    "id": 11,
+    "type": "AFK",
+    "category": "ui",
+    "description": "Add live indicator (pulsing green dot + 'N iterations (live)') to the active task group header in the Iterations view",
+    "acceptance_criteria": [
+      "The active task group header shows a pulsing green dot next to the iteration count",
+      "The text reads 'N iteration(s) (live)' in green",
+      "The dot uses a 1.5s ease-in-out pulse animation cycling opacity between 1 and 0.4",
+      "The indicator only appears on the task group that contains the current iteration",
+      "The app builds and runs without errors"
+    ],
+    "effort": "low",
+    "blocked_by": [],
+    "passes": true,
+    "context": {
+      "what_happened": "The active task group header shows a plain iteration count with no live indicator",
+      "what_expected": "The active task group header should show a pulsing green dot and '(live)' text next to the iteration count",
+      "steps_to_reproduce": ["Start a session running the Build phase", "Open the Iterations tab", "Observe the active task group header has no live indicator"],
+      "notes": "Reference prototype: prototypes/ui-redesign/01-iterations.html lines 906-909. TaskGroupView in IterationCardView.swift renders the header."
+    }
+  },
+  {
+    "id": 12,
+    "type": "AFK",
+    "category": "ui",
+    "description": "Dim pending task groups at 60 percent opacity in the Iterations view",
+    "acceptance_criteria": [
+      "Pending task groups (no iterations yet) render at 60% opacity",
+      "Completed and in-progress task groups remain at full opacity",
+      "The dimming applies to the entire task group including header and any nested cards",
+      "The app builds and runs without errors"
+    ],
+    "effort": "low",
+    "blocked_by": [],
+    "passes": false,
+    "context": {
+      "what_happened": "Pending task groups render at full opacity, same as active and completed groups",
+      "what_expected": "Pending task groups should be visually de-emphasized at 60% opacity",
+      "steps_to_reproduce": ["Open the Iterations tab with tasks that have pending items", "Observe pending task groups are at full opacity"],
+      "notes": "Reference prototype: prototypes/ui-redesign/01-iterations.html lines 939-950. TaskGroupView in IterationCardView.swift needs opacity modifier."
+    }
+  },
+  {
+    "id": 13,
+    "type": "AFK",
+    "category": "ui",
+    "description": "Style iteration number badge as blue text on light blue background instead of gray capsule",
+    "acceptance_criteria": [
+      "Iteration number badge uses blue text (#007aff) on light blue background (#e3f2fd)",
+      "Badge has 4px radius and 8px horizontal padding",
+      "The app builds and runs without errors"
+    ],
+    "effort": "low",
+    "blocked_by": [],
+    "passes": false,
+    "context": {
+      "what_happened": "Iteration number badges (Iter #1, etc.) use a gray capsule style",
+      "what_expected": "Iteration number badges should use blue text on a light blue pill background",
+      "steps_to_reproduce": ["Open the Iterations tab with completed iterations", "Observe iteration number badges are gray instead of blue"],
+      "notes": "Reference prototype: prototypes/ui-redesign/01-iterations.html lines 512-519. IterationCardView.swift renders the badge in the header."
+    }
+  },
+  {
+    "id": 14,
+    "type": "AFK",
+    "category": "ui",
+    "description": "Add dual line number columns (old/new) with marker column to the diff view",
+    "acceptance_criteria": [
+      "Each diff line shows two number columns: old line number (40px) and new line number (40px)",
+      "A 16px marker column between the number columns shows '+', '-', or space",
+      "Added lines show only the new number column, removed lines show only the old number column",
+      "Context lines show both old and new numbers with the marker invisible",
+      "Line numbers are right-aligned, 11px font, tertiary color, non-selectable",
+      "The app builds and runs without errors"
+    ],
+    "effort": "medium",
+    "blocked_by": [],
+    "passes": false,
+    "context": {
+      "what_happened": "Diff lines only show a '+ '/ '- '/ '  ' prefix with no line numbers",
+      "what_expected": "Each diff line should have two number columns (old/new) with a marker column, matching the prototype's full diff layout",
+      "steps_to_reproduce": ["Open the Diff tab with changes to view", "Observe diff lines have no line number columns"],
+      "notes": "Reference prototype: prototypes/ui-redesign/02-diff.html lines 250-274. SessionDiffLineRow in SessionDiffView.swift renders each line."
+    }
+  },
+  {
+    "id": 15,
+    "type": "AFK",
+    "category": "ui",
+    "description": "Style diff hunk headers with blue background and blue text matching the prototype",
+    "acceptance_criteria": [
+      "Hunk headers use blue background (#f1f8ff) and blue text (#0366d6)",
+      "Hunk headers use monospaced 11px font",
+      "Hunk headers have 6px vertical and 14px horizontal padding",
+      "The app builds and runs without errors"
+    ],
+    "effort": "low",
+    "blocked_by": [],
+    "passes": false,
+    "context": {
+      "what_happened": "Hunk headers render as plain secondary text with no background color",
+      "what_expected": "Hunk headers should have a light blue background with blue monospaced text",
+      "steps_to_reproduce": ["Open the Diff tab with changes that have hunk headers", "Observe hunk headers are plain text without blue styling"],
+      "notes": "Reference prototype: prototypes/ui-redesign/02-diff.html lines 241-244. SessionDiffFileView in SessionDiffView.swift renders hunk headers."
+    }
+  },
+  {
+    "id": 16,
+    "type": "AFK",
+    "category": "ui",
+    "description": "Show aggregate diff stats (+additions/-removals) next to the scope picker in the diff header",
+    "acceptance_criteria": [
+      "Total additions shown in green (#22863a) with '+' prefix, right-aligned in the header",
+      "Total removals shown in red (#cb2431) with '-' prefix, next to additions",
+      "Stats use 11px monospaced font",
+      "Stats update when scope changes between 'Last commit' and 'Full session'",
+      "The app builds and runs without errors"
+    ],
+    "effort": "low",
+    "blocked_by": [],
+    "passes": false,
+    "context": {
+      "what_happened": "The diff header only shows the scope picker with no aggregate change statistics",
+      "what_expected": "The diff header should show total additions and removals counts next to the scope picker",
+      "steps_to_reproduce": ["Open the Diff tab with changes", "Observe no stats are shown next to the scope segmented control"],
+      "notes": "Reference prototype: prototypes/ui-redesign/02-diff.html lines 403-406. SessionDiffView.swift renders the header."
+    }
+  },
+  {
+    "id": 17,
+    "type": "AFK",
+    "category": "ui",
+    "description": "Show per-file addition/removal counts in each diff file header",
+    "acceptance_criteria": [
+      "Each file header shows per-file addition count in green and removal count in red",
+      "Stats are right-aligned in the file header, 10px monospaced font",
+      "New files show only additions, deleted files show only removals",
+      "The app builds and runs without errors"
+    ],
+    "effort": "low",
+    "blocked_by": [],
+    "passes": false,
+    "context": {
+      "what_happened": "Diff file headers show only the file path with no per-file change statistics",
+      "what_expected": "Each file header should show per-file addition and removal counts",
+      "steps_to_reproduce": ["Open the Diff tab with multiple changed files", "Observe file headers show no per-file stats"],
+      "notes": "Reference prototype: prototypes/ui-redesign/02-diff.html lines 413-416. SessionDiffFileView in SessionDiffView.swift renders file headers."
+    }
+  },
+  {
+    "id": 18,
+    "type": "AFK",
+    "category": "ui",
+    "description": "Add workflow header with 'Workflow Progress' title and session name subtitle to the Workflow tab",
+    "acceptance_criteria": [
+      "The Workflow tab shows a 'Workflow Progress' title at 16px semibold weight",
+      "Below the title, the session name is shown at 12px in secondary color",
+      "Header has 20px bottom margin",
+      "The app builds and runs without errors"
+    ],
+    "effort": "low",
+    "blocked_by": [],
+    "passes": false,
+    "context": {
+      "what_happened": "The Workflow tab jumps straight into the phase list with no header",
+      "what_expected": "The Workflow tab should show a 'Workflow Progress' title and session name subtitle above the phase list",
+      "steps_to_reproduce": ["Select a session and open the Workflow tab", "Observe no header is shown above the phase list"],
+      "notes": "Reference prototype: prototypes/ui-redesign/03-workflow.html lines 415-418. WorkflowTab.swift renders the content."
+    }
+  },
+  {
+    "id": 19,
+    "type": "AFK",
+    "category": "ui",
+    "description": "Show step count summary (N of M steps completed) under each phase name in the Workflow tab",
+    "acceptance_criteria": [
+      "Each phase header shows a step count line like '3 of 3 steps completed' or '0 of 2 steps'",
+      "The count text is 11px secondary color, shown below the phase name",
+      "The count reflects actual completed vs total steps for that phase",
+      "The app builds and runs without errors"
+    ],
+    "effort": "low",
+    "blocked_by": [],
+    "passes": false,
+    "context": {
+      "what_happened": "Phase headers only show the phase name with no step count summary",
+      "what_expected": "Each phase header should show 'N of M steps completed' below the phase name",
+      "steps_to_reproduce": ["Open the Workflow tab on a session with workflow progress", "Observe phase headers have no step count line"],
+      "notes": "Reference prototype: prototypes/ui-redesign/03-workflow.html lines 426-427. InspectorPhaseSection renders phase headers."
+    }
+  },
+  {
+    "id": 20,
+    "type": "AFK",
+    "category": "ui",
+    "description": "Add status badges (Completed/Current/Pending) to phase headers in the Workflow tab",
+    "acceptance_criteria": [
+      "Completed phases show a green 'Completed' badge",
+      "The current phase shows a blue 'Current' badge",
+      "Pending phases show a gray 'Pending' badge",
+      "Badges use 10px font, 4px radius, 8px horizontal padding, 2px vertical padding",
+      "Badge colors: completed=#e8f5e9/#2e7d32, current=#e3f2fd/#1565c0, pending=#f5f5f5/#757575",
+      "The app builds and runs without errors"
+    ],
+    "effort": "low",
+    "blocked_by": [],
+    "passes": false,
+    "context": {
+      "what_happened": "Phase headers show only a status icon with no text badge indicating the phase state",
+      "what_expected": "Each phase header should show a colored text badge (Completed/Current/Pending)",
+      "steps_to_reproduce": ["Open the Workflow tab on a session with workflow progress", "Observe phase headers have no status text badge"],
+      "notes": "Reference prototype: prototypes/ui-redesign/03-workflow.html lines 207-212. InspectorPhaseSection renders phase headers."
+    }
+  },
+  {
+    "id": 21,
+    "type": "AFK",
+    "category": "ui",
+    "description": "Add step descriptions below step names in the Workflow tab step rows",
+    "acceptance_criteria": [
+      "Each step row shows a description line below the step display name",
+      "Description is 11px secondary color text",
+      "Description is indented 28px to align with step content",
+      "Steps without descriptions show nothing (no empty space)",
+      "The app builds and runs without errors"
+    ],
+    "effort": "low",
+    "blocked_by": [],
+    "passes": false,
+    "context": {
+      "what_happened": "Step rows only show the step display name with no description",
+      "what_expected": "Each step row should show a description line (e.g., 'Interview and refine requirements') below the step name",
+      "steps_to_reproduce": ["Open the Workflow tab on a session", "Observe step rows show only the name with no description"],
+      "notes": "Reference prototype: prototypes/ui-redesign/03-workflow.html lines 238-239. InspectorStepRow renders step rows. Step descriptions would need to come from the Workflow model or be derived from the step type."
+    }
+  },
+  {
+    "id": 22,
+    "type": "AFK",
+    "category": "ui",
+    "description": "Style the Mark Complete keyboard shortcut as a styled badge inside the button",
+    "acceptance_criteria": [
+      "The keyboard shortcut text is shown as a pill badge with semi-transparent white background",
+      "Badge uses 10px monospaced font",
+      "Badge has 1px vertical and 6px horizontal padding, 3px radius",
+      "Badge opacity is 0.7",
+      "The app builds and runs without errors"
+    ],
+    "effort": "low",
+    "blocked_by": [],
+    "passes": false,
+    "context": {
+      "what_happened": "The Mark Complete button shows keyboard shortcut as plain text without badge styling",
+      "what_expected": "The shortcut text should be rendered as a styled pill badge matching the prototype design",
+      "steps_to_reproduce": ["Open the Workflow tab", "Look at the 'Mark step as complete' button at the bottom", "Observe the shortcut text is plain rather than a styled badge"],
+      "notes": "Reference prototype: prototypes/ui-redesign/03-workflow.html lines 276-279. WorkflowTab.swift renders the button."
+    }
+  },
+  {
+    "id": 23,
+    "type": "AFK",
+    "category": "ui",
+    "description": "Add terminal header bar with icon, title showing the agent name, and restart button",
+    "acceptance_criteria": [
+      "Terminal pane shows a 36px header bar at the top with dark background (#2d2d2d)",
+      "Header shows a keyboard icon and title text like 'Terminal — claude'",
+      "Header shows a restart button (⟳) on the right side",
+      "Restart button has hover state with light background",
+      "Header has a subtle bottom border (0.5px, rgba white 0.06)",
+      "The app builds and runs without errors"
+    ],
+    "effort": "low",
+    "blocked_by": [],
+    "passes": false,
+    "context": {
+      "what_happened": "The terminal pane has no header bar — the terminal content starts immediately",
+      "what_expected": "The terminal pane should have a header bar showing the agent name and a restart button",
+      "steps_to_reproduce": ["Select a session", "Look at the terminal pane on the left", "Observe no header bar above the terminal content"],
+      "notes": "Reference prototype: prototypes/ui-redesign/01-iterations.html lines 264-306. TerminalHost.swift wraps the terminal view."
+    }
+  }
+]
