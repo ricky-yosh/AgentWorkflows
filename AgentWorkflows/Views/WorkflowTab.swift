@@ -15,6 +15,15 @@ struct WorkflowTab: View {
 
     var body: some View {
         VStack(spacing: 0) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Workflow Progress")
+                    .font(.system(size: 16, weight: .semibold))
+                Text(session.name)
+                    .font(.system(size: 12))
+                    .foregroundStyle(.secondary)
+            }
+            .padding(.bottom, 20)
+
             if let workflow {
                 phaseList(workflow: workflow)
             } else {

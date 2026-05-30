@@ -346,7 +346,7 @@
     ],
     "effort": "low",
     "blocked_by": [],
-    "passes": false,
+    "passes": true,
     "context": {
       "what_happened": "The Workflow tab jumps straight into the phase list with no header",
       "what_expected": "The Workflow tab should show a 'Workflow Progress' title and session name subtitle above the phase list",
