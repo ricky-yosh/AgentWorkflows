@@ -1,0 +1,526 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Prototype 2 — Diff Tab</title>
+<style>
+  :root {
+    --mac-bg: #ececec;
+    --mac-sidebar: rgba(244, 244, 244, 0.92);
+    --mac-control: #ffffff;
+    --mac-text: #1d1d1f;
+    --mac-text-secondary: #86868b;
+    --mac-text-tertiary: #aeaeb2;
+    --mac-accent: #007aff;
+    --mac-accent-hover: #0066d6;
+    --mac-separator: rgba(0, 0, 0, 0.1);
+    --mac-selection: #007aff;
+    --mac-green: #34c759;
+    --mac-orange: #ff9500;
+    --mac-red: #ff3b30;
+    --mac-purple: #af52de;
+    --mac-yellow: #ffcc00;
+    --mac-window-radius: 10px;
+    --mac-shadow: 0 22px 70px 4px rgba(0,0,0,0.28), 0 0 0 0.5px rgba(0,0,0,0.12);
+    --terminal-bg: #1e1e1e;
+    --terminal-text: #d4d4d4;
+    --terminal-green: #6a9955;
+    --terminal-blue: #569cd6;
+    --terminal-yellow: #dcdcaa;
+    --terminal-string: #ce9178;
+    --diff-add-bg: #e6ffec;
+    --diff-add-text: #22863a;
+    --diff-add-line: #acf2bd;
+    --diff-remove-bg: #ffeef0;
+    --diff-remove-text: #cb2431;
+    --diff-remove-line: #fdb8c0;
+    --diff-hunk-bg: #f1f8ff;
+    --diff-hunk-text: #0366d6;
+    --diff-context: #586069;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", system-ui, sans-serif;
+    background: #2a2a2a;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    color: var(--mac-text);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .window {
+    width: 1280px;
+    height: 800px;
+    background: var(--mac-bg);
+    border-radius: var(--mac-window-radius);
+    box-shadow: var(--mac-shadow);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    border: 0.5px solid rgba(0,0,0,0.15);
+  }
+
+  .titlebar {
+    height: 52px;
+    background: linear-gradient(180deg, #f6f6f6 0%, #e8e8e8 100%);
+    border-bottom: 0.5px solid var(--mac-separator);
+    display: flex;
+    align-items: center;
+    padding: 0 16px;
+    flex-shrink: 0;
+    position: relative;
+  }
+
+  .traffic-lights { display: flex; gap: 8px; align-items: center; }
+  .traffic-light { width: 12px; height: 12px; border-radius: 50%; border: 0.5px solid rgba(0,0,0,0.12); }
+  .traffic-light.close { background: #ff5f57; }
+  .traffic-light.minimize { background: #febc2e; }
+  .traffic-light.maximize { background: #28c840; }
+
+  .titlebar-text {
+    position: absolute; left: 50%; transform: translateX(-50%);
+    font-size: 13px; font-weight: 500; color: var(--mac-text-secondary); letter-spacing: -0.01em;
+  }
+
+  .titlebar-actions { margin-left: auto; display: flex; gap: 4px; align-items: center; }
+  .toolbar-btn {
+    width: 28px; height: 28px; border-radius: 6px; border: none; background: transparent;
+    color: var(--mac-text-secondary); font-size: 15px; cursor: pointer;
+    display: flex; align-items: center; justify-content: center; transition: background 0.15s;
+  }
+  .toolbar-btn:hover { background: rgba(0,0,0,0.06); }
+  .toolbar-btn.play { color: var(--mac-green); }
+  .toolbar-btn.stop { color: var(--mac-red); }
+
+  .main { display: flex; flex: 1; overflow: hidden; }
+
+  /* ── Sidebar ── */
+  .sidebar {
+    width: 220px; min-width: 180px; background: var(--mac-sidebar);
+    border-right: 0.5px solid var(--mac-separator);
+    display: flex; flex-direction: column; overflow-y: auto; flex-shrink: 0;
+    backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+  }
+  .sidebar-section { padding: 8px 0; }
+  .sidebar-section-title {
+    font-size: 11px; font-weight: 600; color: var(--mac-text-secondary);
+    text-transform: uppercase; letter-spacing: 0.06em; padding: 4px 16px 6px;
+  }
+  .sidebar-item {
+    display: flex; align-items: center; gap: 8px; padding: 6px 16px;
+    font-size: 13px; color: var(--mac-text); cursor: pointer;
+    border-radius: 6px; margin: 0 6px; transition: background 0.1s;
+  }
+  .sidebar-item:hover { background: rgba(0,0,0,0.04); }
+  .sidebar-item.active { background: var(--mac-selection); color: white; }
+  .sidebar-item.active .sidebar-icon { color: white; }
+  .sidebar-item.active .sidebar-subtitle { color: rgba(255,255,255,0.7); }
+  .sidebar-icon { font-size: 15px; width: 20px; text-align: center; color: var(--mac-text-secondary); flex-shrink: 0; }
+  .sidebar-item-content { display: flex; flex-direction: column; min-width: 0; }
+  .sidebar-item-name { font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .sidebar-subtitle { font-size: 11px; color: var(--mac-text-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 1px; }
+
+  .session-status-expanded {
+    padding: 8px 16px 10px; margin: 0 6px 4px; border-radius: 6px; background: rgba(0,0,0,0.03);
+  }
+  .status-row { display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--mac-text-secondary); margin-bottom: 4px; }
+  .status-row:last-child { margin-bottom: 0; }
+  .status-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+  .status-dot.running { background: var(--mac-green); animation: pulse 1.5s ease-in-out infinite; }
+  @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+  .status-label { font-weight: 500; color: var(--mac-text); }
+  .status-value { font-family: "SF Mono", "Menlo", monospace; font-size: 10px; }
+
+  .content-area { flex: 1; display: flex; overflow: hidden; }
+
+  /* ── Terminal ── */
+  .terminal-pane { width: 420px; min-width: 280px; background: var(--terminal-bg); display: flex; flex-direction: column; flex-shrink: 0; }
+  .terminal-header {
+    height: 36px; background: #2d2d2d; border-bottom: 0.5px solid rgba(255,255,255,0.06);
+    display: flex; align-items: center; padding: 0 12px; gap: 8px; flex-shrink: 0;
+  }
+  .terminal-header-icon { font-size: 12px; color: #888; }
+  .terminal-header-title { font-size: 11px; color: #999; font-weight: 500; }
+  .terminal-header-actions { margin-left: auto; display: flex; gap: 4px; }
+  .terminal-action-btn {
+    width: 20px; height: 20px; border-radius: 4px; border: none; background: transparent;
+    color: #666; font-size: 11px; cursor: pointer; display: flex; align-items: center; justify-content: center;
+  }
+  .terminal-action-btn:hover { background: rgba(255,255,255,0.08); color: #999; }
+  .terminal-content {
+    flex: 1; padding: 12px 14px; font-family: "SF Mono", "Menlo", "Monaco", monospace;
+    font-size: 12px; line-height: 1.6; color: var(--terminal-text); overflow-y: auto; white-space: pre-wrap;
+  }
+  .terminal-prompt { color: var(--terminal-green); }
+  .terminal-cmd { color: var(--terminal-text); }
+  .terminal-flag { color: var(--terminal-blue); }
+  .terminal-output { color: #888; }
+  .terminal-success { color: var(--terminal-green); }
+  .terminal-warning { color: var(--terminal-yellow); }
+  .terminal-info { color: var(--terminal-blue); }
+  .terminal-dim { color: #555; }
+  .terminal-string { color: var(--terminal-string); }
+  .terminal-cursor { display: inline-block; width: 8px; height: 15px; background: var(--terminal-text); animation: blink 1s step-end infinite; vertical-align: text-bottom; }
+  @keyframes blink { 50% { opacity: 0; } }
+
+  .divider {
+    width: 1px; background: var(--mac-separator); cursor: col-resize; flex-shrink: 0; position: relative;
+  }
+  .divider::after { content: ''; position: absolute; top: 0; bottom: 0; left: -3px; width: 7px; cursor: col-resize; }
+  .divider:hover { background: var(--mac-accent); }
+  .divider-collapse-btn {
+    position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+    width: 16px; height: 32px; background: var(--mac-control); border: 0.5px solid var(--mac-separator);
+    border-radius: 4px; cursor: pointer; display: flex; align-items: center; justify-content: center;
+    font-size: 9px; color: var(--mac-text-secondary); box-shadow: 0 1px 3px rgba(0,0,0,0.12);
+    opacity: 0; transition: opacity 0.15s;
+  }
+  .divider:hover .divider-collapse-btn { opacity: 1; }
+
+  /* ── Tab Pane ── */
+  .tab-pane { flex: 1; display: flex; flex-direction: column; background: var(--mac-control); min-width: 0; }
+  .tab-bar {
+    height: 36px; background: linear-gradient(180deg, #f8f8f8 0%, #f0f0f0 100%);
+    border-bottom: 0.5px solid var(--mac-separator);
+    display: flex; align-items: flex-end; padding: 0 12px; gap: 0; flex-shrink: 0;
+  }
+  .tab-item {
+    padding: 6px 14px; font-size: 12px; font-weight: 500; color: var(--mac-text-secondary);
+    cursor: pointer; border-bottom: 2px solid transparent; transition: color 0.15s, border-color 0.15s;
+    white-space: nowrap; position: relative; bottom: -0.5px;
+  }
+  .tab-item:hover { color: var(--mac-text); }
+  .tab-item.active { color: var(--mac-accent); border-bottom-color: var(--mac-accent); }
+
+  .tab-content { flex: 1; overflow-y: auto; padding: 0; }
+
+  /* ── Diff Header ── */
+  .diff-header {
+    padding: 12px 20px; background: #fafafa; border-bottom: 0.5px solid var(--mac-separator);
+    display: flex; align-items: center; gap: 12px;
+  }
+
+  .diff-segmented {
+    display: flex; background: #e8e8e8; border-radius: 6px; padding: 2px;
+  }
+  .diff-segment {
+    padding: 4px 12px; font-size: 11px; font-weight: 500; border-radius: 4px;
+    cursor: pointer; color: var(--mac-text-secondary); transition: all 0.15s;
+  }
+  .diff-segment.active { background: white; color: var(--mac-text); box-shadow: 0 1px 2px rgba(0,0,0,0.08); }
+  .diff-segment:hover:not(.active) { color: var(--mac-text); }
+
+  .diff-stats {
+    margin-left: auto; display: flex; gap: 12px; font-size: 11px; font-family: "SF Mono", monospace;
+  }
+  .diff-stat-add { color: var(--diff-add-text); }
+  .diff-stat-remove { color: var(--diff-remove-text); }
+
+  /* ── Diff File ── */
+  .diff-file {
+    margin: 12px 20px; border: 0.5px solid var(--mac-separator); border-radius: 8px;
+    overflow: hidden; background: var(--mac-control);
+  }
+
+  .diff-file-header {
+    display: flex; align-items: center; gap: 8px; padding: 8px 14px;
+    background: #f6f8fa; border-bottom: 0.5px solid var(--mac-separator);
+    font-size: 12px; font-family: "SF Mono", "Menlo", monospace;
+  }
+  .diff-file-icon { font-size: 12px; color: var(--mac-text-secondary); }
+  .diff-file-path { color: var(--mac-text); font-weight: 500; }
+  .diff-file-stats { margin-left: auto; display: flex; gap: 8px; font-size: 10px; }
+  .diff-file-stat-add { color: var(--diff-add-text); }
+  .diff-file-stat-remove { color: var(--diff-remove-text); }
+
+  .diff-hunk-header {
+    padding: 6px 14px; background: var(--diff-hunk-bg); color: var(--diff-hunk-text);
+    font-size: 11px; font-family: "SF Mono", monospace; border-bottom: 0.5px solid rgba(0,0,0,0.05);
+  }
+
+  .diff-lines {
+    font-family: "SF Mono", "Menlo", monospace; font-size: 12px; line-height: 1.7;
+  }
+
+  .diff-line {
+    display: flex; padding: 0 14px; min-height: 22px;
+  }
+  .diff-line-num {
+    width: 40px; text-align: right; padding-right: 8px; color: var(--mac-text-tertiary);
+    font-size: 11px; flex-shrink: 0; user-select: none;
+  }
+  .diff-line-num.old { width: 40px; }
+  .diff-line-num.new { width: 40px; border-left: 0.5px solid rgba(0,0,0,0.06); }
+  .diff-line-marker {
+    width: 16px; text-align: center; flex-shrink: 0; font-weight: 600; font-size: 11px;
+  }
+  .diff-line-text { flex: 1; padding-left: 4px; white-space: pre; overflow-x: auto; }
+
+  .diff-line.add { background: var(--diff-add-bg); }
+  .diff-line.add .diff-line-marker { color: var(--diff-add-text); }
+  .diff-line.add .diff-line-text { color: var(--diff-add-text); }
+  .diff-line.add .diff-line-num { background: var(--diff-add-line); color: var(--diff-add-text); }
+
+  .diff-line.remove { background: var(--diff-remove-bg); }
+  .diff-line.remove .diff-line-marker { color: var(--diff-remove-text); }
+  .diff-line.remove .diff-line-text { color: var(--diff-remove-text); }
+  .diff-line.remove .diff-line-num { background: var(--diff-remove-line); color: var(--diff-remove-text); }
+
+  .diff-line.context .diff-line-marker { color: transparent; }
+
+  /* ── Prototype Label ── */
+  .prototype-label {
+    position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%);
+    background: rgba(0,0,0,0.8); color: white; padding: 8px 16px; border-radius: 8px;
+    font-size: 12px; font-weight: 500; backdrop-filter: blur(10px); z-index: 100;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .prototype-label a { color: var(--mac-accent); text-decoration: none; }
+  .prototype-label a:hover { text-decoration: underline; }
+
+  ::-webkit-scrollbar { width: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.15); border-radius: 3px; }
+  ::-webkit-scrollbar-thumb:hover { background: rgba(0,0,0,0.25); }
+</style>
+</head>
+<body>
+
+<div class="window">
+  <div class="titlebar">
+    <div class="traffic-lights">
+      <div class="traffic-light close"></div>
+      <div class="traffic-light minimize"></div>
+      <div class="traffic-light maximize"></div>
+    </div>
+    <span class="titlebar-text">AgentWorkflows — auth-service-refactor</span>
+    <div class="titlebar-actions">
+      <button class="toolbar-btn" title="New Session">＋</button>
+      <button class="toolbar-btn stop" title="Stop">■</button>
+    </div>
+  </div>
+
+  <div class="main">
+    <div class="sidebar">
+      <div class="sidebar-section">
+        <div class="sidebar-item"><span class="sidebar-icon">⌂</span><span class="sidebar-item-content"><span class="sidebar-item-name">Home</span></span></div>
+        <div class="sidebar-item"><span class="sidebar-icon">🔨</span><span class="sidebar-item-content"><span class="sidebar-item-name">Workbench</span></span></div>
+      </div>
+      <div class="sidebar-section">
+        <div class="sidebar-section-title">AgentWorkflows</div>
+        <div class="sidebar-item active">
+          <span class="sidebar-icon">▸</span>
+          <span class="sidebar-item-content"><span class="sidebar-item-name">auth-service-refactor</span></span>
+        </div>
+        <div class="session-status-expanded">
+          <div class="status-row"><span class="status-dot running"></span><span class="status-label">Running</span></div>
+          <div class="status-row"><span class="sidebar-icon" style="font-size:10px">▶</span><span>Phase:</span><span class="status-label">Build</span></div>
+          <div class="status-row"><span class="sidebar-icon" style="font-size:10px">↻</span><span>Iteration:</span><span class="status-value">3 / 6</span></div>
+          <div class="status-row"><span class="sidebar-icon" style="font-size:10px">☐</span><span>Tasks:</span><span class="status-value">2 / 5 done</span></div>
+          <div class="status-row"><span class="sidebar-icon" style="font-size:10px">◷</span><span>Elapsed:</span><span class="status-value">04:32</span></div>
+        </div>
+        <div class="sidebar-item"><span class="sidebar-icon">▸</span><span class="sidebar-item-content"><span class="sidebar-item-name">payment-gateway</span><span class="sidebar-subtitle">Build · 1/4 tasks</span></span></div>
+        <div class="sidebar-item"><span class="sidebar-icon" style="color: var(--mac-green)">✓</span><span class="sidebar-item-content"><span class="sidebar-item-name">user-onboarding</span><span class="sidebar-subtitle">Completed</span></span></div>
+        <div class="sidebar-item"><span class="sidebar-icon">▸</span><span class="sidebar-item-content"><span class="sidebar-item-name">api-rate-limiting</span><span class="sidebar-subtitle">Plan · idle</span></span></div>
+      </div>
+      <div class="sidebar-section">
+        <div class="sidebar-section-title">my-other-project</div>
+        <div class="sidebar-item"><span class="sidebar-icon">▸</span><span class="sidebar-item-content"><span class="sidebar-item-name">dark-mode-support</span><span class="sidebar-subtitle">Verify · paused</span></span></div>
+      </div>
+    </div>
+
+    <div class="content-area">
+      <!-- Terminal -->
+      <div class="terminal-pane">
+        <div class="terminal-header">
+          <span class="terminal-header-icon">⌨</span>
+          <span class="terminal-header-title">Terminal — claude</span>
+          <div class="terminal-header-actions"><button class="terminal-action-btn" title="Restart">⟳</button></div>
+        </div>
+        <div class="terminal-content"><span class="terminal-prompt">❯</span> <span class="terminal-cmd">claude</span> <span class="terminal-flag">-p --dangerously-skip-permissions</span>
+
+<span class="terminal-info">claude&gt;</span> <span class="terminal-cmd">Implementing rate limiting...</span>
+
+<span class="terminal-output">  Reading </span><span class="terminal-string">src/routes/auth.ts</span>
+<span class="terminal-output">  Reading </span><span class="terminal-string">package.json</span>
+
+<span class="terminal-info">claude&gt;</span> <span class="terminal-cmd">Installing rate limiter...</span>
+
+<span class="terminal-output">  npm install express-rate-limit</span>
+<span class="terminal-output">  added 1 package in 0.8s</span>
+
+<span class="terminal-success">✓ Installed express-rate-limit</span>
+
+<span class="terminal-info">claude&gt;</span> <span class="terminal-cmd">Creating rate limit config...</span>
+
+<span class="terminal-output">  Creating </span><span class="terminal-string">src/middleware/rateLimit.ts</span>
+<span class="terminal-output">  Updating </span><span class="terminal-string">src/routes/auth.ts</span>
+
+<span class="terminal-success">✓ Rate limiting configured</span>
+<span class="terminal-success">✓ Login: 10 req/min per IP</span>
+<span class="terminal-success">✓ Refresh: 20 req/min per IP</span>
+
+<span class="terminal-info">claude&gt;</span> <span class="terminal-cmd">Writing tests...</span>
+
+<span class="terminal-output">  </span><span class="terminal-string">src/__tests__/rateLimit.test.ts</span>
+<span class="terminal-output">    ✓ should block after 10 login attempts (12ms)</span>
+<span class="terminal-output">    ✓ should allow refresh within limit (4ms)</span>
+<span class="terminal-output">    ✓ should reset after window expires (1012ms)</span>
+
+<span class="terminal-success">✓ All tests passing</span>
+
+<span class="terminal-info">claude&gt;</span> <span class="terminal-cmd">Committing...</span>
+
+<span class="terminal-output">[main def5678] </span><span class="terminal-success">feat: add rate limiting to auth endpoints</span>
+<span class="terminal-output"> 4 files changed, 89 insertions(+)</span>
+
+<span class="terminal-info">claude&gt;</span> <span class="terminal-cmd">Task complete. Reviewing diff...</span><span class="terminal-cursor"></span></div>
+      </div>
+
+      <div class="divider"><div class="divider-collapse-btn">◀</div></div>
+
+      <!-- Tab Pane: Diff -->
+      <div class="tab-pane">
+        <div class="tab-bar">
+          <div class="tab-item">Iterations</div>
+          <div class="tab-item">Files</div>
+          <div class="tab-item active">Diff</div>
+          <div class="tab-item">Log</div>
+          <div class="tab-item">Workflow</div>
+        </div>
+
+        <div class="tab-content">
+          <div class="diff-header">
+            <div class="diff-segmented">
+              <div class="diff-segment active">Last commit</div>
+              <div class="diff-segment">Full session</div>
+            </div>
+            <div class="diff-stats">
+              <span class="diff-stat-add">+89</span>
+              <span class="diff-stat-remove">-4</span>
+            </div>
+          </div>
+
+          <!-- File 1: New file -->
+          <div class="diff-file">
+            <div class="diff-file-header">
+              <span class="diff-file-icon">📄</span>
+              <span class="diff-file-path">src/middleware/rateLimit.ts</span>
+              <div class="diff-file-stats">
+                <span class="diff-file-stat-add">+42</span>
+              </div>
+            </div>
+            <div class="diff-hunk-header">@@ -0,0 +1,42 @@ — New file</div>
+            <div class="diff-lines">
+              <div class="diff-line add"><span class="diff-line-num old"></span><span class="diff-line-num new">1</span><span class="diff-line-marker">+</span><span class="diff-line-text">import rateLimit from 'express-rate-limit';</span></div>
+              <div class="diff-line add"><span class="diff-line-num old"></span><span class="diff-line-num new">2</span><span class="diff-line-marker">+</span><span class="diff-line-text">import { Request, Response } from 'express';</span></div>
+              <div class="diff-line add"><span class="diff-line-num old"></span><span class="diff-line-num new">3</span><span class="diff-line-marker">+</span><span class="diff-line-text"></span></div>
+              <div class="diff-line add"><span class="diff-line-num old"></span><span class="diff-line-num new">4</span><span class="diff-line-marker">+</span><span class="diff-line-text">export const loginLimiter = rateLimit({</span></div>
+              <div class="diff-line add"><span class="diff-line-num old"></span><span class="diff-line-num new">5</span><span class="diff-line-marker">+</span><span class="diff-line-text">  windowMs: 60 * 1000, // 1 minute</span></div>
+              <div class="diff-line add"><span class="diff-line-num old"></span><span class="diff-line-num new">6</span><span class="diff-line-marker">+</span><span class="diff-line-text">  max: 10,</span></div>
+              <div class="diff-line add"><span class="diff-line-num old"></span><span class="diff-line-num new">7</span><span class="diff-line-marker">+</span><span class="diff-line-text">  message: { error: 'Too many login attempts' },</span></div>
+              <div class="diff-line add"><span class="diff-line-num old"></span><span class="diff-line-num new">8</span><span class="diff-line-marker">+</span><span class="diff-line-text">  standardHeaders: true,</span></div>
+              <div class="diff-line add"><span class="diff-line-num old"></span><span class="diff-line-num new">9</span><span class="diff-line-marker">+</span><span class="diff-line-text">  legacyHeaders: false,</span></div>
+              <div class="diff-line add"><span class="diff-line-num old"></span><span class="diff-line-num new">10</span><span class="diff-line-marker">+</span><span class="diff-line-text">});</span></div>
+              <div class="diff-line add"><span class="diff-line-num old"></span><span class="diff-line-num new">11</span><span class="diff-line-marker">+</span><span class="diff-line-text"></span></div>
+              <div class="diff-line add"><span class="diff-line-num old"></span><span class="diff-line-num new">12</span><span class="diff-line-marker">+</span><span class="diff-line-text">export const refreshLimiter = rateLimit({</span></div>
+              <div class="diff-line add"><span class="diff-line-num old"></span><span class="diff-line-num new">13</span><span class="diff-line-marker">+</span><span class="diff-line-text">  windowMs: 60 * 1000,</span></div>
+              <div class="diff-line add"><span class="diff-line-num old"></span><span class="diff-line-num new">14</span><span class="diff-line-marker">+</span><span class="diff-line-text">  max: 20,</span></div>
+              <div class="diff-line add"><span class="diff-line-num old"></span><span class="diff-line-num new">15</span><span class="diff-line-marker">+</span><span class="diff-line-text">  message: { error: 'Too many refresh attempts' },</span></div>
+              <div class="diff-line add"><span class="diff-line-num old"></span><span class="diff-line-num new">16</span><span class="diff-line-marker">+</span><span class="diff-line-text">  standardHeaders: true,</span></div>
+              <div class="diff-line add"><span class="diff-line-num old"></span><span class="diff-line-num new">17</span><span class="diff-line-marker">+</span><span class="diff-line-text">  legacyHeaders: false,</span></div>
+              <div class="diff-line add"><span class="diff-line-num old"></span><span class="diff-line-num new">18</span><span class="diff-line-marker">+</span><span class="diff-line-text">});</span></div>
+              <div class="diff-line add"><span class="diff-line-num old"></span><span class="diff-line-num new">19</span><span class="diff-line-marker">+</span><span class="diff-line-text"></span></div>
+              <div class="diff-line add"><span class="diff-line-num old"></span><span class="diff-line-num new">20</span><span class="diff-line-marker">+</span><span class="diff-line-text">export function rateLimitHandler(req: Request, res: Response) {</span></div>
+              <div class="diff-line add"><span class="diff-line-num old"></span><span class="diff-line-num new">21</span><span class="diff-line-marker">+</span><span class="diff-line-text">  res.status(429).json({</span></div>
+              <div class="diff-line add"><span class="diff-line-num old"></span><span class="diff-line-num new">22</span><span class="diff-line-marker">+</span><span class="diff-line-text">    type: 'https://tools.ietf.org/html/rfc7231#section-6.5.29',</span></div>
+              <div class="diff-line add"><span class="diff-line-num old"></span><span class="diff-line-num new">23</span><span class="diff-line-marker">+</span><span class="diff-line-text">    title: 'Too Many Requests',</span></div>
+              <div class="diff-line add"><span class="diff-line-num old"></span><span class="diff-line-num new">24</span><span class="diff-line-marker">+</span><span class="diff-line-text">    status: 429,</span></div>
+              <div class="diff-line add"><span class="diff-line-num old"></span><span class="diff-line-num new">25</span><span class="diff-line-marker">+</span><span class="diff-line-text">  });</span></div>
+              <div class="diff-line add"><span class="diff-line-num old"></span><span class="diff-line-num new">26</span><span class="diff-line-marker">+</span><span class="diff-line-text">}</span></div>
+            </div>
+          </div>
+
+          <!-- File 2: Modified -->
+          <div class="diff-file">
+            <div class="diff-file-header">
+              <span class="diff-file-icon">📝</span>
+              <span class="diff-file-path">src/routes/auth.ts</span>
+              <div class="diff-file-stats">
+                <span class="diff-file-stat-add">+8</span>
+                <span class="diff-file-stat-remove">-2</span>
+              </div>
+            </div>
+            <div class="diff-hunk-header">@@ -1,8 +1,14 @@ — imports</div>
+            <div class="diff-lines">
+              <div class="diff-line context"><span class="diff-line-num old">1</span><span class="diff-line-num new">1</span><span class="diff-line-marker"> </span><span class="diff-line-text">import { Router } from 'express';</span></div>
+              <div class="diff-line context"><span class="diff-line-num old">2</span><span class="diff-line-num new">2</span><span class="diff-line-marker"> </span><span class="diff-line-text">import { authMiddleware } from '../middleware/auth';</span></div>
+              <div class="diff-line remove"><span class="diff-line-num old">3</span><span class="diff-line-num new"></span><span class="diff-line-marker">-</span><span class="diff-line-text">import { validateToken } from '../utils/jwt';</span></div>
+              <div class="diff-line add"><span class="diff-line-num old"></span><span class="diff-line-num new">3</span><span class="diff-line-marker">+</span><span class="diff-line-text">import { loginLimiter, refreshLimiter } from '../middleware/rateLimit';</span></div>
+              <div class="diff-line add"><span class="diff-line-num old"></span><span class="diff-line-num new">4</span><span class="diff-line-marker">+</span><span class="diff-line-text">import { validateToken } from '../utils/jwt';</span></div>
+              <div class="diff-line context"><span class="diff-line-num old">4</span><span class="diff-line-num new">5</span><span class="diff-line-marker"> </span><span class="diff-line-text"></span></div>
+              <div class="diff-line context"><span class="diff-line-num old">5</span><span class="diff-line-num new">6</span><span class="diff-line-marker"> </span><span class="diff-line-text">const router = Router();</span></div>
+              <div class="diff-line context"><span class="diff-line-num old">6</span><span class="diff-line-num new">7</span><span class="diff-line-marker"> </span><span class="diff-line-text"></span></div>
+              <div class="diff-line remove"><span class="diff-line-num old">7</span><span class="diff-line-num new"></span><span class="diff-line-marker">-</span><span class="diff-line-text">router.post('/login', async (req, res) =&gt; {</span></div>
+              <div class="diff-line add"><span class="diff-line-num old"></span><span class="diff-line-num new">8</span><span class="diff-line-marker">+</span><span class="diff-line-text">router.post('/login', loginLimiter, async (req, res) =&gt; {</span></div>
+              <div class="diff-line context"><span class="diff-line-num old">8</span><span class="diff-line-num new">9</span><span class="diff-line-marker"> </span><span class="diff-line-text">  // ... login logic</span></div>
+              <div class="diff-line context"><span class="diff-line-num old">9</span><span class="diff-line-num new">10</span><span class="diff-line-marker"> </span><span class="diff-line-text">});</span></div>
+              <div class="diff-line context"><span class="diff-line-num old">10</span><span class="diff-line-num new">11</span><span class="diff-line-marker"> </span><span class="diff-line-text"></span></div>
+              <div class="diff-line remove"><span class="diff-line-num old">11</span><span class="diff-line-num new"></span><span class="diff-line-marker">-</span><span class="diff-line-text">router.post('/refresh', async (req, res) =&gt; {</span></div>
+              <div class="diff-line add"><span class="diff-line-num old"></span><span class="diff-line-num new">12</span><span class="diff-line-marker">+</span><span class="diff-line-text">router.post('/refresh', refreshLimiter, async (req, res) =&gt; {</span></div>
+              <div class="diff-line context"><span class="diff-line-num old">12</span><span class="diff-line-num new">13</span><span class="diff-line-marker"> </span><span class="diff-line-text">  // ... refresh logic</span></div>
+              <div class="diff-line context"><span class="diff-line-num old">13</span><span class="diff-line-num new">14</span><span class="diff-line-marker"> </span><span class="diff-line-text">});</span></div>
+            </div>
+          </div>
+
+          <!-- File 3: Tests -->
+          <div class="diff-file">
+            <div class="diff-file-header">
+              <span class="diff-file-icon">🧪</span>
+              <span class="diff-file-path">src/__tests__/rateLimit.test.ts</span>
+              <div class="diff-file-stats">
+                <span class="diff-file-stat-add">+39</span>
+              </div>
+            </div>
+            <div class="diff-hunk-header">@@ -0,0 +1,39 @@ — New file</div>
+            <div class="diff-lines">
+              <div class="diff-line add"><span class="diff-line-num old"></span><span class="diff-line-num new">1</span><span class="diff-line-marker">+</span><span class="diff-line-text">import request from 'supertest';</span></div>
+              <div class="diff-line add"><span class="diff-line-num old"></span><span class="diff-line-num new">2</span><span class="diff-line-marker">+</span><span class="diff-line-text">import { app } from '../index';</span></div>
+              <div class="diff-line add"><span class="diff-line-num old"></span><span class="diff-line-num new">3</span><span class="diff-line-marker">+</span><span class="diff-line-text"></span></div>
+              <div class="diff-line add"><span class="diff-line-num old"></span><span class="diff-line-num new">4</span><span class="diff-line-marker">+</span><span class="diff-line-text">describe('Rate Limiting', () =&gt; {</span></div>
+              <div class="diff-line add"><span class="diff-line-num old"></span><span class="diff-line-num new">5</span><span class="diff-line-marker">+</span><span class="diff-line-text">  it('should block after 10 login attempts', async () =&gt; {</span></div>
+              <div class="diff-line add"><span class="diff-line-num old"></span><span class="diff-line-num new">6</span><span class="diff-line-marker">+</span><span class="diff-line-text">    for (let i = 0; i &lt; 10; i++) {</span></div>
+              <div class="diff-line add"><span class="diff-line-num old"></span><span class="diff-line-num new">7</span><span class="diff-line-marker">+</span><span class="diff-line-text">      await request(app).post('/auth/login').send({ ... });</span></div>
+              <div class="diff-line add"><span class="diff-line-num old"></span><span class="diff-line-num new">8</span><span class="diff-line-marker">+</span><span class="diff-line-text">    }</span></div>
+              <div class="diff-line add"><span class="diff-line-num old"></span><span class="diff-line-num new">9</span><span class="diff-line-marker">+</span><span class="diff-line-text">    const res = await request(app).post('/auth/login').send({ ... });</span></div>
+              <div class="diff-line add"><span class="diff-line-num old"></span><span class="diff-line-num new">10</span><span class="diff-line-marker">+</span><span class="diff-line-text">    expect(res.status).toBe(429);</span></div>
+              <div class="diff-line add"><span class="diff-line-num old"></span><span class="diff-line-num new">11</span><span class="diff-line-marker">+</span><span class="diff-line-text">  });</span></div>
+              <div class="diff-line add"><span class="diff-line-num old"></span><span class="diff-line-num new">12</span><span class="diff-line-marker">+</span><span class="diff-line-text"></span></div>
+              <div class="diff-line add"><span class="diff-line-num old"></span><span class="diff-line-num new">13</span><span class="diff-line-marker">+</span><span class="diff-line-text">  it('should allow refresh within limit', async () =&gt; {</span></div>
+              <div class="diff-line add"><span class="diff-line-num old"></span><span class="diff-line-num new">14</span><span class="diff-line-marker">+</span><span class="diff-line-text">    const res = await request(app).post('/auth/refresh').send({ ... });</span></div>
+              <div class="diff-line add"><span class="diff-line-num old"></span><span class="diff-line-num new">15</span><span class="diff-line-marker">+</span><span class="diff-line-text">    expect(res.status).not.toBe(429);</span></div>
+              <div class="diff-line add"><span class="diff-line-num old"></span><span class="diff-line-num new">16</span><span class="diff-line-marker">+</span><span class="diff-line-text">  });</span></div>
+              <div class="diff-line add"><span class="diff-line-num old"></span><span class="diff-line-num new">17</span><span class="diff-line-marker">+</span><span class="diff-line-text">});</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="prototype-label">
+  PROTOTYPE 2/3 — Diff Tab
+  <span style="color: #666">|</span>
+  <a href="01-iterations.html">← Iterations</a>
+  <span style="color: #666">|</span>
+  <a href="03-workflow.html">Workflow →</a>
+</div>
+
+</body>
+</html>

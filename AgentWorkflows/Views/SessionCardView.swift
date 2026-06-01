@@ -5,7 +5,7 @@ struct SessionCardView: View {
     @Environment(EngineManager.self) private var engineManager
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 2) {
+        VStack(alignment: .leading, spacing: 4) {
             Text(session.name)
                 .font(.body)
                 .lineLimit(1)

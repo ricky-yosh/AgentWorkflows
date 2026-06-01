@@ -22,6 +22,7 @@ extension Notification.Name {
     static let awShowNewSession = Notification.Name("AWShowNewSession")
     static let awNewSessionSameFolder = Notification.Name("AWNewSessionSameFolder")
     static let awToggleTerminal = Notification.Name("AWToggleTerminal")
+    static let awToggleFullWidthTerminal = Notification.Name("AWToggleFullWidthTerminal")
     static let awCycleSessionForward = Notification.Name("AWCycleSessionForward")
     static let awCycleSessionBackward = Notification.Name("AWCycleSessionBackward")
     static let awSessionTogglePlayback = Notification.Name("AWSessionTogglePlayback")
@@ -34,6 +35,7 @@ extension Notification.Name {
     static let awSessionRename = Notification.Name("AWSessionRename")
     static let awSessionDelete = Notification.Name("AWSessionDelete")
     static let awSessionMarkStepComplete = Notification.Name("AWSessionMarkStepComplete")
+    static let awSelectSessionTab = Notification.Name("AWSelectSessionTab")
 }
 
 struct IsSessionSelectedKey: FocusedValueKey {

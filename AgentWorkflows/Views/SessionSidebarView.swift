@@ -246,7 +246,7 @@ struct SessionSidebarView: View {
                 .onExitCommand { inlineRenamingID = nil }
                 .onAppear { inlineRenameFocused = true }
         } else if selection == .session(session.id) {
-            VStack(alignment: .leading, spacing: 2) {
+            VStack(alignment: .leading, spacing: 4) {
                 Text(session.name)
                     .font(.body)
                     .lineLimit(1)
@@ -255,7 +255,6 @@ struct SessionSidebarView: View {
                     session: session,
                     workflow: Workflow.ralph
                 )
-                .padding(.top, 4)
             }
             .onAppear { primeTaskCounts(for: session) }
         } else {
@@ -488,4 +487,27 @@ private struct RelocateSessionSheet: View {
             errorMessage = nil
         }
     }
+}
+
+// MARK: - Previews
+
+#Preview("Rename Session Sheet") {
+    RenameSessionSheet(
+        initialName: "My Feature Branch",
+        onSave: { _ in },
+        onCancel: {}
+    )
+}
+
+#Preview("Relocate Session Sheet") {
+    RelocateSessionSheet(
+        entry: SessionRegistryEntry(
+            id: UUID(),
+            name: "Orphaned Session",
+            workingDirectory: "/Users/dev/MyProject",
+            workflowName: "Ralph"
+        ),
+        onRelocate: { _ in },
+        onCancel: {}
+    )
 }

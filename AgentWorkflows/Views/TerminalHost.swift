@@ -9,13 +9,18 @@ struct TerminalHost: View {
     @Environment(EngineManager.self) private var engineManager
     @Environment(SettingsStore.self) private var settingsStore
     @State private var hoveringRestart = false
+    @State private var pendingToolSwitch: CLIPreset? = nil
 
     private var activeTerminalTool: String? {
         engineManager.activeTools(for: session.id).last
     }
 
+    private var currentIdlePreset: CLIPreset {
+        engineManager.idleToolOverride(for: session.id) ?? settingsStore.settings.buildCLI
+    }
+
     private var idleTool: String {
-        ProcessRunnerFactory.toolIdentifier(for: settingsStore.settings.buildCLI)
+        ProcessRunnerFactory.toolIdentifier(for: currentIdlePreset)
     }
 
     private var currentEngine: TerminalEngine? {
@@ -59,6 +64,25 @@ struct TerminalHost: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
         .onAppear { startDefaultEngineIfNeeded() }
+        .alert(
+            "Switch to \(pendingToolSwitch?.displayName ?? "")?",
+            isPresented: Binding(
+                get: { pendingToolSwitch != nil },
+                set: { if !$0 { pendingToolSwitch = nil } }
+            )
+        ) {
+            Button("Switch", role: .destructive) {
+                if let preset = pendingToolSwitch {
+                    switchIdleTool(to: preset)
+                }
+                pendingToolSwitch = nil
+            }
+            Button("Cancel", role: .cancel) {
+                pendingToolSwitch = nil
+            }
+        } message: {
+            Text("The current terminal session will be terminated and its context will be lost.")
+        }
     }
 
     @ViewBuilder
@@ -80,17 +104,41 @@ struct TerminalHost: View {
         HStack(spacing: 8) {
             Image(systemName: "keyboard")
                 .font(.system(size: 12))
-                .foregroundColor(Color(red: 0.533, green: 0.533, blue: 0.533))
-            Text("Terminal \u{2014} \(agentDisplayName)")
-                .font(.system(size: 11, weight: .medium))
-                .foregroundColor(Color(red: 0.6, green: 0.6, blue: 0.6))
+                .foregroundColor(Color(nsColor: .tertiaryLabelColor))
+            if !session.workflowName.isEmpty && session.state == .running {
+                Text("Terminal \u{2014} \(agentDisplayName)")
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundColor(Color(nsColor: .secondaryLabelColor))
+            } else {
+                Menu {
+                    ForEach(CLIPreset.allCases) { preset in
+                        Button {
+                            pendingToolSwitch = preset
+                        } label: {
+                            if preset == currentIdlePreset {
+                                Label(preset.displayName, systemImage: "checkmark")
+                            } else {
+                                Text(preset.displayName)
+                            }
+                        }
+                    }
+                } label: {
+                    HStack(spacing: 3) {
+                        Text("Terminal \u{2014} \(agentDisplayName)")
+                            .font(.system(size: 11, weight: .medium))
+                    }
+                    .foregroundColor(Color(nsColor: .secondaryLabelColor))
+                }
+                .menuStyle(.borderlessButton)
+                .fixedSize()
+            }
             Spacer()
             Button {
                 restartEngine()
             } label: {
                 Image(systemName: "arrow.clockwise")
                     .font(.system(size: 11, weight: .medium))
-                    .foregroundColor(Color(red: 0.4, green: 0.4, blue: 0.4))
+                    .foregroundColor(Color(nsColor: .secondaryLabelColor))
             }
             .buttonStyle(.plain)
             .frame(width: 20, height: 20)
@@ -109,6 +157,18 @@ struct TerminalHost: View {
             Rectangle()
                 .fill(Color.white.opacity(0.06))
                 .frame(height: 0.5)
+        }
+    }
+
+    private func switchIdleTool(to preset: CLIPreset) {
+        guard preset != currentIdlePreset else { return }
+        let oldTool = idleTool
+        engineManager.setIdleToolOverride(preset, for: session.id)
+        let newTool = idleTool
+        engineManager.existingEngine(for: session.id, tool: oldTool)?.terminate()
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+            let engine = engineManager.engine(for: session.id, tool: newTool)
+            try? engine.start(workingDirectory: session.workingDirectory, tool: newTool)
         }
     }
 

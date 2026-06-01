@@ -32,7 +32,7 @@ enum DocsFileScanner {
         let fm = FileManager.default
         guard let enumerator = fm.enumerator(
             at: directory,
-            includingPropertiesForKeys: [.fileSizeKey, .isRegularFileKey],
+            includingPropertiesForKeys: [.fileSizeKey, .isRegularFileKey, .contentModificationDateKey],
             options: [.skipsHiddenFiles, .skipsPackageDescendants]
         ) else { return [] }
         return (enumerator.allObjects as? [URL] ?? [])
@@ -47,6 +47,7 @@ enum DocsFileScanner {
 
 struct DocsView: View {
     let session: Session
+    var terminalCollapsed: Bool = false
     @Environment(SessionStore.self) private var sessionStore
 
     @State private var files: [URL] = []
@@ -57,6 +58,7 @@ struct DocsView: View {
     @State private var focusedPane: Pane = .left
     @State private var watcher = DirectoryWatcher()
     @State private var awWatcher = DirectoryWatcher()
+    @State private var trayExpanded = true
 
     private enum Pane { case left, right }
 
@@ -69,11 +71,20 @@ struct DocsView: View {
     }
 
     var body: some View {
-        HSplitView {
-            fileList
-                .frame(minWidth: 160, idealWidth: 200, maxWidth: 280)
-
-            contentArea
+        Group {
+            if terminalCollapsed {
+                HSplitView {
+                    fileList
+                        .frame(minWidth: 160, idealWidth: 200, maxWidth: 280)
+                    contentArea
+                }
+            } else {
+                VStack(spacing: 0) {
+                    contentArea
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    fileTray
+                }
+            }
         }
         .task(id: session.id) {
             refreshFileList()
@@ -93,35 +104,79 @@ struct DocsView: View {
         }
     }
 
-    // MARK: - File List
+    // MARK: - File Tray (stacked layout)
 
-    private var fileList: some View {
-        List(selection: Binding(
-            get: { focusedPane == .left ? leftFile : rightFile },
-            set: { newValue in
-                if focusedPane == .left || !isSplit {
-                    leftFile = newValue
-                } else {
-                    rightFile = newValue
-                }
-            }
-        )) {
-            if !projectFiles.isEmpty {
-                Section("Project") {
-                    ForEach(projectFiles, id: \.self) { url in
-                        FileRowView(url: url)
-                            .tag(url)
+    private var fileTray: some View {
+        VStack(spacing: 0) {
+            Divider()
+            HStack {
+                Text("Files")
+                    .font(.caption)
+                    .fontWeight(.semibold)
+                    .foregroundStyle(.secondary)
+                Spacer()
+                Button {
+                    withAnimation(.spring(response: 0.25, dampingFraction: 0.8)) {
+                        trayExpanded.toggle()
                     }
+                } label: {
+                    Image(systemName: trayExpanded ? "chevron.down" : "chevron.up")
+                        .font(.caption)
                 }
+                .buttonStyle(.borderless)
             }
-            Section("Session") {
-                ForEach(files, id: \.self) { url in
-                    FileRowView(url: url)
-                        .tag(url)
-                }
+            .padding(.horizontal, 10)
+            .padding(.vertical, 5)
+            .background(Color(nsColor: .controlBackgroundColor))
+
+            if trayExpanded {
+                fileList
+                    .frame(height: 200)
             }
         }
-        .listStyle(.inset)
+    }
+
+    // MARK: - File List
+
+    private var selectedFile: URL? {
+        focusedPane == .left ? leftFile : rightFile
+    }
+
+    private func selectFile(_ url: URL) {
+        if focusedPane == .left || !isSplit {
+            leftFile = url
+        } else {
+            rightFile = url
+        }
+    }
+
+    private var fileList: some View {
+        ScrollView {
+            LazyVStack(spacing: 0) {
+                if !projectFiles.isEmpty {
+                    DocsSectionHeader(title: "Project")
+                    ForEach(projectFiles, id: \.self) { url in
+                        FileRowView(
+                            url: url,
+                            awDirectory: awDirectory,
+                            isSelected: selectedFile == url,
+                            onSelect: { selectFile(url) }
+                        )
+                    }
+                }
+                DocsSectionHeader(title: "Session")
+                ForEach(files, id: \.self) { url in
+                    FileRowView(
+                        url: url,
+                        sessionDirectory: sessionDirectory,
+                        isSelected: selectedFile == url,
+                        onSelect: { selectFile(url) }
+                    )
+                }
+            }
+            .padding(.vertical, 4)
+        }
+        .background(Color(NSColor.controlBackgroundColor))
     }
 
     // MARK: - Content Area
@@ -198,25 +253,116 @@ struct DocsView: View {
     }
 }
 
+// MARK: - Section Header
+
+private struct DocsSectionHeader: View {
+    let title: String
+    var body: some View {
+        Text(title)
+            .font(.system(size: 10, weight: .semibold))
+            .foregroundStyle(.secondary)
+            .tracking(0.5)
+            .textCase(.uppercase)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, 10)
+            .padding(.top, 8)
+            .padding(.bottom, 3)
+    }
+}
+
 // MARK: - File Row
 
 struct FileRowView: View {
     let url: URL
+    var sessionDirectory: URL? = nil
+    var awDirectory: URL? = nil
+    var isSelected: Bool = false
+    var onSelect: () -> Void = {}
+
+    @AppStorage("externalEditorPath") private var externalEditorPath: String = ""
+    @State private var isHovered = false
 
     var body: some View {
-        HStack {
+        HStack(spacing: 8) {
             Image(systemName: iconForExtension(url.pathExtension))
-                .foregroundStyle(.secondary)
-                .frame(width: 16)
-            VStack(alignment: .leading, spacing: 2) {
+                .font(.system(size: 13))
+                .foregroundStyle(isSelected ? Color.white.opacity(0.9) : .secondary)
+                .frame(width: 16, alignment: .center)
+
+            VStack(alignment: .leading, spacing: 1) {
                 Text(url.lastPathComponent)
+                    .font(.system(size: 12, weight: isSelected ? .medium : .regular))
+                    .foregroundStyle(isSelected ? Color.white : .primary)
                     .lineLimit(1)
                     .truncationMode(.middle)
                 Text(fileSizeString)
-                    .font(.caption2)
-                    .foregroundStyle(.tertiary)
+                    .font(.system(size: 10))
+                    .foregroundStyle(isSelected ? Color.white.opacity(0.7) : Color(NSColor.tertiaryLabelColor))
+            }
+
+            Spacer(minLength: 4)
+
+            // Trailing zone: mod date fades out, open-externally button fades in on hover
+            ZStack {
+                Text(modDateString)
+                    .font(.system(size: 10))
+                    .foregroundStyle(isSelected ? Color.white.opacity(0.6) : .secondary)
+                    .opacity(isHovered ? 0 : 1)
+
+                Button {
+                    openInEditor(url)
+                } label: {
+                    Image(systemName: "arrow.up.forward.app")
+                        .font(.system(size: 11))
+                        .foregroundStyle(isSelected ? Color.white.opacity(0.9) : Color.accentColor)
+                }
+                .buttonStyle(.borderless)
+                .help("Open in External Editor")
+                .opacity(isHovered ? 1 : 0)
+                .allowsHitTesting(isHovered)
+            }
+            .animation(.easeInOut(duration: 0.12), value: isHovered)
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 6)
+        .background(
+            RoundedRectangle(cornerRadius: 4)
+                .fill(isSelected ? Color.accentColor : (isHovered ? Color.primary.opacity(0.06) : Color.clear))
+        )
+        .padding(.horizontal, 4)
+        .contentShape(Rectangle())
+        .onTapGesture { onSelect() }
+        .onHover { hovering in
+            withAnimation(.easeInOut(duration: 0.12)) { isHovered = hovering }
+        }
+        .contextMenu {
+            Button("Open in Finder") {
+                NSWorkspace.shared.activateFileViewerSelecting([url])
+            }
+            Divider()
+            Button("Copy Full Path") {
+                copyToPasteboard(url.path)
+            }
+            Button("Copy Relative Path") {
+                copyToPasteboard(relativePath)
             }
         }
+    }
+
+    private var relativePath: String {
+        if let sessionDir = sessionDirectory, url.path.hasPrefix(sessionDir.path + "/") {
+            return String(url.path.dropFirst(sessionDir.path.count + 1))
+        }
+        if let awDir = awDirectory, url.path.hasPrefix(awDir.path + "/") {
+            return String(url.path.dropFirst(awDir.path.count + 1))
+        }
+        return url.lastPathComponent
+    }
+
+    private func copyToPasteboard(_ value: String) {
+        let pasteboard = NSPasteboard.general
+        pasteboard.clearContents()
+        pasteboard.setString(value, forType: .string)
     }
 
     private var fileSizeString: String {
@@ -225,6 +371,24 @@ struct FileRowView: View {
         if size < 1024 { return "\(size) B" }
         if size < 1024 * 1024 { return "\(size / 1024) KB" }
         return String(format: "%.1f MB", Double(size) / 1_048_576)
+    }
+
+    private var modDateString: String {
+        guard let values = try? url.resourceValues(forKeys: [.contentModificationDateKey]),
+              let date = values.contentModificationDate else { return "" }
+        let formatter = RelativeDateTimeFormatter()
+        formatter.unitsStyle = .abbreviated
+        return formatter.localizedString(for: date, relativeTo: Date())
+    }
+
+    private func openInEditor(_ file: URL) {
+        if !externalEditorPath.isEmpty {
+            let editorURL = URL(fileURLWithPath: externalEditorPath)
+            let config = NSWorkspace.OpenConfiguration()
+            NSWorkspace.shared.open([file], withApplicationAt: editorURL, configuration: config)
+        } else {
+            NSWorkspace.shared.open(file)
+        }
     }
 
     private func iconForExtension(_ ext: String) -> String {
@@ -289,39 +453,31 @@ struct DocsContentPaneView: View {
 
             Spacer()
 
-            if let file {
-                Toggle("Wrap", isOn: $wordWrap)
-                    .toggleStyle(.button)
-                    .controlSize(.small)
-                    .help("Toggle word wrap")
-
-                Button {
-                    openInEditor(file)
-                } label: {
-                    Image(systemName: "square.and.pencil")
+            Menu {
+                if let file {
+                    Toggle("Soft Wrap", isOn: $wordWrap)
+                    Divider()
+                    Button("Open in External Editor") { openInEditor(file) }
+                    Divider()
                 }
-                .buttonStyle(.borderless)
-                .help("Open in External Editor")
+                if isSplit {
+                    Button("Close Pane", action: onClose)
+                } else {
+                    Button("Split Editor View", action: onToggleSplit)
+                        .disabled(file == nil)
+                }
+            } label: {
+                Image(systemName: "ellipsis.circle")
+                    .font(.system(size: 14))
+                    .foregroundStyle(.secondary)
             }
-
-            if isSplit {
-                Button(action: onClose) {
-                    Image(systemName: "xmark")
-                }
-                .buttonStyle(.borderless)
-                .help("Close pane")
-            } else {
-                Button(action: onToggleSplit) {
-                    Image(systemName: "rectangle.split.2x1")
-                }
-                .buttonStyle(.borderless)
-                .help("Split view")
-                .disabled(file == nil)
-            }
+            .menuStyle(.borderlessButton)
+            .frame(width: 24, height: 24)
+            .help("Editor options")
         }
         .padding(.horizontal, 10)
         .padding(.vertical, 6)
-        .background(Color(nsColor: .controlBackgroundColor))
+        .background(.ultraThinMaterial)
     }
 
     // MARK: - Content
@@ -331,11 +487,28 @@ struct DocsContentPaneView: View {
         if let file {
             FileContentView(url: file, wordWrap: wordWrap)
         } else {
-            Text("Select a file to view")
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .font(.title3)
-                .foregroundStyle(.tertiary)
+            emptyState
         }
+    }
+
+    private var emptyState: some View {
+        VStack(spacing: 12) {
+            Image(systemName: "doc.text.magnifyingglass")
+                .font(.system(size: 32))
+                .foregroundStyle(.secondary)
+
+            VStack(spacing: 4) {
+                Text("No File Selected")
+                    .font(.system(size: 13, weight: .medium))
+                Text("Select a file from the sidebar to view its contents.")
+                    .font(.system(size: 11))
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+                    .frame(maxWidth: 220)
+            }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(Color(NSColor.textBackgroundColor))
     }
 
     // MARK: - Actions
@@ -439,6 +612,7 @@ struct MarkdownContentView: View {
     var body: some View {
         ScrollView(.vertical) {
             MarkdownView(content: content)
+                .textSelection(.enabled)
                 .frame(maxWidth: 590)
                 .padding(.horizontal, 24)
                 .padding(.vertical, 20)
@@ -511,6 +685,7 @@ struct JSONContentView: View {
             let root = JSONNode.build(from: parsed)
             ScrollView(wordWrap ? [.vertical] : [.horizontal, .vertical]) {
                 JSONNodeView(node: root, isRoot: true)
+                    .textSelection(.enabled)
                     .padding()
                     .frame(maxWidth: wordWrap ? .infinity : nil, alignment: .leading)
             }
@@ -644,12 +819,14 @@ struct XMLContentView: View {
             if wordWrap {
                 ScrollView(.vertical) {
                     XMLNodeView(node: root)
+                        .textSelection(.enabled)
                         .padding()
                         .frame(maxWidth: .infinity, alignment: .leading)
                 }
             } else {
                 ScrollView([.horizontal, .vertical]) {
                     XMLNodeView(node: root)
+                        .textSelection(.enabled)
                         .padding()
                 }
             }
@@ -701,4 +878,55 @@ private struct XMLNodeView: View {
             }
         }
     }
+}
+
+// MARK: - Previews
+
+#Preview("File Rows") {
+    VStack(spacing: 0) {
+        DocsSectionHeader(title: "Project")
+        FileRowView(url: URL(fileURLWithPath: "/tmp/README.md"), isSelected: false, onSelect: {})
+        FileRowView(url: URL(fileURLWithPath: "/tmp/config.json"), isSelected: true, onSelect: {})
+        FileRowView(url: URL(fileURLWithPath: "/tmp/notes.txt"), isSelected: false, onSelect: {})
+        DocsSectionHeader(title: "Session")
+        FileRowView(url: URL(fileURLWithPath: "/tmp/output.md"), isSelected: false, onSelect: {})
+    }
+    .frame(width: 220)
+    .padding(.vertical, 4)
+    .background(Color(NSColor.controlBackgroundColor))
+}
+
+#Preview("Plain Text Content") {
+    PlainTextContentView(content: """
+        This is a plain text file preview.
+        It shows monospaced text with word wrap enabled.
+        Lines wrap naturally at the container edge.
+        """)
+}
+
+#Preview("JSON Content") {
+    JSONContentView(content: """
+        {
+          "name": "AgentWorkflows",
+          "version": "1.0.0",
+          "features": ["session management", "workflow engine"],
+          "debug": false,
+          "config": null
+        }
+        """)
+}
+
+#Preview("XML Content") {
+    XMLContentView(content: """
+        <?xml version="1.0" encoding="UTF-8"?>
+        <workflow name="Ralph">
+          <phase name="Plan">
+            <step id="grill" type="prompt" label="Grill" />
+            <step id="prd" type="prompt" label="Write PRD" />
+          </phase>
+          <phase name="Build">
+            <step id="iterate" type="iterate_tasks" />
+          </phase>
+        </workflow>
+        """)
 }

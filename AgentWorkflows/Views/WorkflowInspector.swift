@@ -92,6 +92,7 @@ struct WorkflowInspector: View {
                     currentPhaseIndex: displayPhaseIndex,
                     currentStepIndex: displayStepIndex,
                     completedStepIDs: Set(displayCompletedStepIDs),
+                    executionState: workflowEngine?.executionState ?? .idle,
                     isExpanded: isExpanded,
                     onRunFromHere: { phaseIndex, stepIndex in
                         onRunFromHere?(phaseIndex, stepIndex)

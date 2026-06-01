@@ -10,6 +10,8 @@ final class EngineManager {
     private var toolOrder: [UUID: [String]] = [:]
     private var workflowEngines: [UUID: WorkflowEngine] = [:]
     private var runStatuses: [UUID: SessionRunStatus] = [:]
+    private var selectedDetailTabs: [UUID: String] = [:]
+    private var idleToolOverrides: [UUID: CLIPreset] = [:]
     @ObservationIgnored private var terminationObserver: NSObjectProtocol?
 
     init() {
@@ -39,6 +41,22 @@ final class EngineManager {
         )
         runStatuses[sessionID] = status
         return status
+    }
+
+    func selectedDetailTab(for sessionID: UUID) -> String {
+        selectedDetailTabs[sessionID] ?? "iterations"
+    }
+
+    func setSelectedDetailTab(_ tab: String, for sessionID: UUID) {
+        selectedDetailTabs[sessionID] = tab
+    }
+
+    func idleToolOverride(for sessionID: UUID) -> CLIPreset? {
+        idleToolOverrides[sessionID]
+    }
+
+    func setIdleToolOverride(_ preset: CLIPreset, for sessionID: UUID) {
+        idleToolOverrides[sessionID] = preset
     }
 
     /// The default agent preference. Ralph is the only workflow, so claude is

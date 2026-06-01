@@ -49,8 +49,7 @@ final class OpenCodeProcessRunner: ProcessRunner {
             "opencode", "run",
             "--format", "json",
             "--dangerously-skip-permissions",
-            "/ralph",
-            progressDirectory.path
+            "/ralph \(progressDirectory.path)"
         ]
         let decoder = OpenCodeEventDecoder()
         return runSubprocess(

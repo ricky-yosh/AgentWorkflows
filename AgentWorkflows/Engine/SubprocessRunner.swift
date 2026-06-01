@@ -37,7 +37,7 @@ final class SubprocessRunner {
 
     private static var pathPrefix: String {
         let home = NSHomeDirectory()
-        return "\(home)/.local/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"
+        return "\(home)/.opencode/bin:\(home)/.local/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"
     }
 
     /// Spawns `/usr/bin/env <arguments>` with `workingDirectory` as cwd.

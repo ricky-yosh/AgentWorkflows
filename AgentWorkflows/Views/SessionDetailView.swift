@@ -1,5 +1,4 @@
 import SwiftUI
-import AppKit
 
 /// Session detail layout: terminal as permanent left pane, tabs on the right.
 struct SessionDetailView<Header: View>: View {
@@ -19,10 +18,40 @@ struct SessionDetailView<Header: View>: View {
     /// same seed without re-prompting.
     @State private var seedIdea: String?
     @State private var seedPromptPresented = false
-    @State private var selectedTab: SessionTab = .iterations
-
     private enum SessionTab: Hashable {
         case iterations, files, diff, log, workflow
+
+        var rawValue: String {
+            switch self {
+            case .iterations: return "iterations"
+            case .files: return "files"
+            case .diff: return "diff"
+            case .log: return "log"
+            case .workflow: return "workflow"
+            }
+        }
+
+        init(rawValue: String) {
+            switch rawValue {
+            case "files": self = .files
+            case "diff": self = .diff
+            case "log": self = .log
+            case "workflow": self = .workflow
+            default: self = .iterations
+            }
+        }
+    }
+
+    private var selectedTab: SessionTab {
+        get { SessionTab(rawValue: engineManager.selectedDetailTab(for: session.id)) }
+        nonmutating set { engineManager.setSelectedDetailTab(newValue.rawValue, for: session.id) }
+    }
+
+    private var selectedTabBinding: Binding<SessionTab> {
+        Binding(
+            get: { selectedTab },
+            set: { selectedTab = $0 }
+        )
     }
 
     private var workflowEngine: WorkflowEngine? {
@@ -33,21 +62,56 @@ struct SessionDetailView<Header: View>: View {
         GeometryReader { geometry in
             VStack(spacing: 0) {
                 headerContent
-                HStack(spacing: 0) {
+                HSplitView {
                     if !terminalDividerState.collapsed {
                         terminalPane
-                            .frame(width: terminalDividerState.width)
+                            .frame(
+                                minWidth: TerminalDividerState.minimumWidth,
+                                maxWidth: terminalDividerState.fullWidth
+                                    ? .infinity
+                                    : geometry.size.width * TerminalDividerState.maxWindowFraction
+                            )
+                            .background(SplitViewBridge(state: terminalDividerState))
                     }
-                    TerminalDivider(
-                        state: terminalDividerState,
-                        windowWidth: geometry.size.width
-                    )
-                    tabPane
+                    if !terminalDividerState.fullWidth {
+                        tabPane
+                            .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    }
                 }
             }
         }
         .toolbar {
+            ToolbarItem(placement: .principal) {
+                Picker("Tab", selection: selectedTabBinding) {
+                    Image(systemName: "repeat")
+                        .accessibilityLabel("Iterations")
+                        .tag(SessionTab.iterations)
+                    Image(systemName: "folder")
+                        .accessibilityLabel("Files")
+                        .tag(SessionTab.files)
+                    Image(systemName: "plusminus")
+                        .accessibilityLabel("Diff")
+                        .tag(SessionTab.diff)
+                    Image(systemName: "list.bullet.rectangle")
+                        .accessibilityLabel("Log")
+                        .tag(SessionTab.log)
+                    Image(systemName: "arrow.triangle.branch")
+                        .accessibilityLabel("Workflow")
+                        .tag(SessionTab.workflow)
+                }
+                .pickerStyle(.segmented)
+            }
             ToolbarItemGroup(placement: .primaryAction) {
+                Button {
+                    withAnimation(.easeInOut(duration: 0.2)) {
+                        terminalDividerState.toggleFullWidth()
+                    }
+                } label: {
+                    Image(systemName: terminalDividerState.fullWidth
+                          ? "arrow.down.right.and.arrow.up.left"
+                          : "arrow.up.left.and.arrow.down.right")
+                }
+                .help(terminalDividerState.fullWidth ? "Exit Full Width" : "Full Width Terminal")
                 playStopButton
             }
         }
@@ -56,11 +120,20 @@ struct SessionDetailView<Header: View>: View {
                 terminalDividerState.toggle()
             }
         }
+        .onReceive(NotificationCenter.default.publisher(for: .awToggleFullWidthTerminal)) { _ in
+            withAnimation(.easeInOut(duration: 0.2)) {
+                terminalDividerState.toggleFullWidth()
+            }
+        }
         .onReceive(NotificationCenter.default.publisher(for: .awSessionTogglePlayback)) { _ in
             togglePlayback()
         }
+        .onReceive(NotificationCenter.default.publisher(for: .awSelectSessionTab)) { notification in
+            if let rawValue = notification.object as? String {
+                selectedTab = SessionTab(rawValue: rawValue)
+            }
+        }
             .task(id: session.id) {
-                selectedTab = .iterations
                 phaseExpansion = [:]
                 seedIdea = nil
                 seedPromptPresented = false
@@ -125,7 +198,13 @@ struct SessionDetailView<Header: View>: View {
 
     @ViewBuilder
     private var tabbedBody: some View {
-        TabView(selection: $selectedTab) {
+        tabContent
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    @ViewBuilder
+    private var tabContent: some View {
+        ZStack {
             IterationsView(
                 sessionID: session.id,
                 tasksFileURL: SessionDirectoryLayout.tasksFileURL(
@@ -133,20 +212,20 @@ struct SessionDetailView<Header: View>: View {
                     sessionID: session.id
                 )
             )
-            .tabItem { Label("Iterations", systemImage: "repeat") }
-            .tag(SessionTab.iterations)
+            .opacity(selectedTab == .iterations ? 1 : 0)
+            .allowsHitTesting(selectedTab == .iterations)
 
-            DocsView(session: session)
-                .tabItem { Label("Files", systemImage: "folder") }
-                .tag(SessionTab.files)
+            DocsView(session: session, terminalCollapsed: terminalDividerState.collapsed)
+                .opacity(selectedTab == .files ? 1 : 0)
+                .allowsHitTesting(selectedTab == .files)
 
             SessionDiffView(session: session)
-                .tabItem { Label("Diff", systemImage: "plusminus") }
-                .tag(SessionTab.diff)
+                .opacity(selectedTab == .diff ? 1 : 0)
+                .allowsHitTesting(selectedTab == .diff)
 
             ExecutionLogTabView(sessionID: session.id)
-                .tabItem { Label("Log", systemImage: "list.bullet.rectangle") }
-                .tag(SessionTab.log)
+                .opacity(selectedTab == .log ? 1 : 0)
+                .allowsHitTesting(selectedTab == .log)
 
             WorkflowTab(
                 session: session,
@@ -155,39 +234,9 @@ struct SessionDetailView<Header: View>: View {
                 phaseExpansion: $phaseExpansion,
                 onRunFromHere: { runFromHere(phaseIndex: $0, stepIndex: $1) }
             )
-                .tabItem { Label("Workflow", systemImage: "arrow.triangle.branch") }
-                .tag(SessionTab.workflow)
+            .opacity(selectedTab == .workflow ? 1 : 0)
+            .allowsHitTesting(selectedTab == .workflow)
         }
-        .background(TabTooltipSetter(tooltips: [
-            "Iterations (⌘1)",
-            "Files (⌘2)",
-            "Diff (⌘3)",
-            "Log (⌘4)",
-            "Workflow (⌘5)"
-        ]))
-        .overlay(tabShortcuts)
-    }
-
-    @ViewBuilder
-    private var tabShortcuts: some View {
-        ZStack {
-            Button("") { selectedTab = .iterations }
-                .keyboardShortcut("1", modifiers: .command)
-                .hidden()
-            Button("") { selectedTab = .files }
-                .keyboardShortcut("2", modifiers: .command)
-                .hidden()
-            Button("") { selectedTab = .diff }
-                .keyboardShortcut("3", modifiers: .command)
-                .hidden()
-            Button("") { selectedTab = .log }
-                .keyboardShortcut("4", modifiers: .command)
-                .hidden()
-            Button("") { selectedTab = .workflow }
-                .keyboardShortcut("5", modifiers: .command)
-                .hidden()
-        }
-        .frame(width: 0, height: 0)
     }
 
     private func syncRunStatusState(_ state: SessionState) {
@@ -478,28 +527,6 @@ extension SessionDetailView where Header == EmptyView {
     }
 }
 
-/// Walks up the NSView hierarchy from its anchor to find the nearest NSTabView
-/// and sets toolTip on each NSTabViewItem in order.
-private struct TabTooltipSetter: NSViewRepresentable {
-    let tooltips: [String]
-
-    func makeNSView(context: Context) -> NSView { NSView() }
-
-    func updateNSView(_ nsView: NSView, context: Context) {
-        DispatchQueue.main.async {
-            var current: NSView? = nsView
-            while let v = current {
-                if let tabView = v as? NSTabView {
-                    for (item, tip) in zip(tabView.tabViewItems, tooltips) {
-                        item.toolTip = tip
-                    }
-                    return
-                }
-                current = v.superview
-            }
-        }
-    }
-}
 
 struct MissingSessionDetailView: View {
     let entry: SessionRegistryEntry

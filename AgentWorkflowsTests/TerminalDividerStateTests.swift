@@ -211,4 +211,118 @@ struct TerminalDividerStateTests {
 
         #expect(restored.width == draggedWidth)
     }
+
+    // MARK: - Full Width
+
+    @Test("fullWidth is false by default")
+    func fullWidthDefaultsToFalse() {
+        let defaults = makeDefaults()
+        let state = TerminalDividerState(defaults: defaults)
+
+        #expect(state.fullWidth == false)
+    }
+
+    @Test("enterFullScreen sets fullWidth to true")
+    func enterFullScreenSetsFullWidth() {
+        let defaults = makeDefaults()
+        let state = TerminalDividerState(defaults: defaults)
+
+        state.enterFullScreen()
+
+        #expect(state.fullWidth == true)
+    }
+
+    @Test("enterFullScreen is idempotent")
+    func enterFullScreenIdempotent() {
+        let defaults = makeDefaults()
+        let state = TerminalDividerState(defaults: defaults)
+
+        state.enterFullScreen()
+        state.enterFullScreen()
+
+        #expect(state.fullWidth == true)
+    }
+
+    @Test("exitFullScreen restores fullWidth to false")
+    func exitFullScreenRestoresState() {
+        let defaults = makeDefaults()
+        let state = TerminalDividerState(defaults: defaults)
+
+        state.enterFullScreen()
+        state.exitFullScreen()
+
+        #expect(state.fullWidth == false)
+    }
+
+    @Test("exitFullScreen is idempotent")
+    func exitFullScreenIdempotent() {
+        let defaults = makeDefaults()
+        let state = TerminalDividerState(defaults: defaults)
+
+        state.enterFullScreen()
+        state.exitFullScreen()
+        state.exitFullScreen()
+
+        #expect(state.fullWidth == false)
+    }
+
+    @Test("toggleFullWidth enters and exits full width")
+    func toggleFullWidthToggles() {
+        let defaults = makeDefaults()
+        let state = TerminalDividerState(defaults: defaults)
+
+        state.toggleFullWidth()
+        #expect(state.fullWidth == true)
+
+        state.toggleFullWidth()
+        #expect(state.fullWidth == false)
+    }
+
+    @Test("exitFullScreen restores width before full screen")
+    func exitFullScreenRestoresWidth() {
+        let defaults = makeDefaults()
+        let state = TerminalDividerState(defaults: defaults)
+
+        state.handleDrag(delta: 80, windowWidth: 1200)
+        let widthBefore = state.width
+        state.enterFullScreen()
+        state.exitFullScreen()
+
+        #expect(state.width == widthBefore)
+    }
+
+    @Test("drag is ignored when in full width mode")
+    func dragIgnoredWhenFullWidth() {
+        let defaults = makeDefaults()
+        let state = TerminalDividerState(defaults: defaults)
+
+        state.enterFullScreen()
+        let widthAfterEnter = state.width
+        state.handleDrag(delta: 100, windowWidth: 1200)
+
+        #expect(state.width == widthAfterEnter)
+    }
+
+    @Test("full width state persists to UserDefaults")
+    func fullWidthStatePersists() {
+        let defaults = makeDefaults()
+        let state = TerminalDividerState(defaults: defaults)
+
+        state.enterFullScreen()
+
+        let restored = TerminalDividerState(defaults: defaults)
+        #expect(restored.fullWidth == true)
+    }
+
+    @Test("exiting full width persists to UserDefaults")
+    func exitFullScreenPersists() {
+        let defaults = makeDefaults()
+        let state = TerminalDividerState(defaults: defaults)
+
+        state.enterFullScreen()
+        state.exitFullScreen()
+
+        let restored = TerminalDividerState(defaults: defaults)
+        #expect(restored.fullWidth == false)
+    }
 }

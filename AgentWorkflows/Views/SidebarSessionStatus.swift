@@ -1,5 +1,4 @@
 import SwiftUI
-import Combine
 
 /// Expanded status shown below the active session row in the sidebar.
 /// Displays state badge, phase name, iteration/task counters (Build phase only),
@@ -10,7 +9,6 @@ struct SidebarSessionStatus: View {
     let workflow: Workflow?
 
     @State private var now: Date = Date()
-    private let tick = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
 
     var phaseName: String? {
         guard let workflow else { return nil }
@@ -22,19 +20,27 @@ struct SidebarSessionStatus: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 2) {
+        VStack(alignment: .leading, spacing: 3) {
             HStack(spacing: 4) {
                 StatusBadgeView(sessionState: session.state)
                 Text(session.state.displayLabel)
-                    .font(.caption2.monospaced())
                     .foregroundStyle(session.state.color)
+                if let phaseName {
+                    Text("·").foregroundStyle(.tertiary)
+                    Text(phaseName)
+                } else if let modelLabel = status.sidebarModelLabel {
+                    Text("·").foregroundStyle(.tertiary)
+                    Text(modelLabel).lineLimit(1)
+                }
+                if status.startedAt != nil {
+                    Spacer()
+                    Text(elapsedLabel)
+                        .foregroundStyle(.tertiary)
+                }
             }
-
-            if let phaseName {
-                Text(phaseName)
-                    .font(.caption2.monospaced())
-                    .foregroundStyle(.secondary)
-            }
+            .font(.caption2)
+            .foregroundStyle(.secondary)
+            .lineLimit(1)
 
             if isInBuildPhase {
                 HStack(spacing: 4) {
@@ -42,17 +48,16 @@ struct SidebarSessionStatus: View {
                     Text("·").foregroundStyle(.tertiary)
                     Text("tasks \(status.tasksPassed)/\(status.tasksTotal)")
                 }
-                .font(.caption2.monospaced())
+                .font(.caption2)
                 .foregroundStyle(.secondary)
             }
-
-            if status.startedAt != nil {
-                Text(elapsedLabel)
-                    .font(.caption2.monospaced())
-                    .foregroundStyle(.secondary)
+        }
+        .task {
+            while !Task.isCancelled {
+                try? await Task.sleep(for: .seconds(1))
+                now = Date()
             }
         }
-        .onReceive(tick) { now = $0 }
     }
 
     private var elapsedLabel: String {

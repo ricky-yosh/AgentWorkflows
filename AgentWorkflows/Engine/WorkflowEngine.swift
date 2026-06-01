@@ -22,6 +22,7 @@ struct ExecutionEvent: Identifiable, Equatable, Codable {
         case crashed          // harness process exited unexpectedly
         case skipped          // step was skipped (skip_when / manual)
         case completed        // whole workflow finished
+        case debug            // engine-level diagnostic (start, ready, inject, exit)
     }
 
     var id: UUID = UUID()
@@ -60,6 +61,10 @@ final class WorkflowEngine {
     private var eventsFileURL: URL {
         let dir = (signalFilePath as NSString).deletingLastPathComponent
         return URL(fileURLWithPath: dir).appendingPathComponent("events.jsonl")
+    }
+
+    func logDebug(_ message: String) {
+        record(.debug, message)
     }
 
     private func record(_ kind: ExecutionEvent.Kind, _ message: String) {
@@ -463,9 +468,10 @@ final class WorkflowEngine {
                 }
                 driver.onSubprocessExit = { [weak self] iter, exitCode in
                     DispatchQueue.main.async {
+                        let preset = self?.settingsStore?.settings.buildCLI ?? .claude
                         self?.record(
                             exitCode == 0 ? .stepCompleted : .crashed,
-                            "iter \(iter) claude exited with code \(exitCode)"
+                            "iter \(iter) \(preset.rawValue) exited with code \(exitCode)"
                         )
                     }
                 }

@@ -121,6 +121,7 @@ struct MarkdownView: View {
                 blockView(block)
             }
         }
+        .textSelection(.enabled)
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
