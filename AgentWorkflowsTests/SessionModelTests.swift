@@ -315,4 +315,52 @@ struct WorkflowModelTests {
         #expect(decoded.phases[0].steps[0].prompt == "Hello")
     }
 
+    @Test func workflowStepDescriptionIsOptionalAndCodable() throws {
+        let withDescription = WorkflowStep(
+            id: "s1",
+            type: .prompt,
+            agent: nil,
+            prompt: "p",
+            promptFile: nil,
+            description: "Does something"
+        )
+        let withoutDescription = WorkflowStep(
+            id: "s2",
+            type: .prompt,
+            agent: nil,
+            prompt: "p",
+            promptFile: nil
+        )
+
+        #expect(withDescription.description == "Does something")
+        #expect(withoutDescription.description == nil)
+
+        let phase = Phase(name: "P", steps: [withDescription, withoutDescription])
+        let workflow = Workflow(name: "W", phases: [phase])
+        let data = try JSONEncoder().encode(workflow)
+        let decoded = try JSONDecoder().decode(Workflow.self, from: data)
+
+        #expect(decoded.phases[0].steps[0].description == "Does something")
+        #expect(decoded.phases[0].steps[1].description == nil)
+    }
+
+    @Test func ralphWorkflowStepsHaveDescriptions() {
+        let workflow = Workflow.ralph
+
+        let planPhase = workflow.phases[0]
+        #expect(planPhase.name == "Plan")
+        #expect(planPhase.steps[0].description == "Interview and refine requirements")
+        #expect(planPhase.steps[1].description == "Generate PRD from conversation")
+        #expect(planPhase.steps[2].description == "Decompose PRD into task backlog")
+
+        let buildPhase = workflow.phases[1]
+        #expect(buildPhase.name == "Build")
+        #expect(buildPhase.steps[0].steps?[0].description == "Iterate through task backlog (runs per-task)")
+
+        let verifyPhase = workflow.phases[2]
+        #expect(verifyPhase.name == "Verify")
+        #expect(verifyPhase.steps[0].description == "Restart the CLI agent")
+        #expect(verifyPhase.steps[1].description == "Interactive QA session")
+    }
+
 }

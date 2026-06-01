@@ -1,44 +1,62 @@
 import SwiftUI
 import SwiftTerm
 
+/// Wraps a persistent `NSView` container that accumulates all terminal views
+/// as subviews and shows/hides them as sessions change.
+///
+/// **Why always-present, with optional terminalView:**
+/// When a session has no active engine the caller passes `nil`.  The container
+/// stays in the SwiftUI view tree so the previously-visible terminal view is
+/// never removed from the window hierarchy.  Removing a view from a window
+/// invalidates its `CAMetalLayer` drawable, blanking full-screen TUI apps
+/// (e.g. OpenCode / Bubble Tea) — even if the view is re-inserted later.
+///
+/// Passing a non-nil `terminalView` shows that view and hides the previous
+/// one; both remain as subviews of the container.
 struct TerminalViewWrapper: NSViewRepresentable {
-    let terminalView: LocalProcessTerminalView
-
-    func makeCoordinator() -> Coordinator {
-        Coordinator(terminalView: terminalView)
-    }
-
-    func makeNSView(context: Context) -> LocalProcessTerminalView {
-        terminalView
-    }
-
-    func updateNSView(_ nsView: LocalProcessTerminalView, context: Context) {}
+    /// The terminal view to show, or `nil` to hide the current view while
+    /// keeping it (and the container) alive in the window hierarchy.
+    let terminalView: LocalProcessTerminalView?
 
     final class Coordinator {
-        private var monitor: Any?
-        private weak var terminalView: LocalProcessTerminalView?
+        var visibleView: LocalProcessTerminalView?
+    }
 
-        init(terminalView: LocalProcessTerminalView) {
-            self.terminalView = terminalView
-            monitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
-                self?.handle(event) ?? event
+    func makeCoordinator() -> Coordinator { Coordinator() }
+
+    func makeNSView(context: Context) -> NSView {
+        let container = NSView()
+        container.wantsLayer = true
+        if let tv = terminalView {
+            pin(tv, to: container)
+            context.coordinator.visibleView = tv
+        }
+        return container
+    }
+
+    func updateNSView(_ container: NSView, context: Context) {
+        guard context.coordinator.visibleView !== terminalView else {
+            return
+        }
+
+        if let tv = terminalView {
+            // Switch to a new terminal view — keep all previous views as hidden subviews.
+            context.coordinator.visibleView?.isHidden = true
+            if tv.superview !== container {
+                pin(tv, to: container)
             }
+            tv.isHidden = false
+            context.coordinator.visibleView = tv
+        } else {
+            // nil: hide the current view but leave it (and the container) in the hierarchy.
+            context.coordinator.visibleView?.isHidden = true
+            context.coordinator.visibleView = nil
         }
+    }
 
-        deinit {
-            if let monitor { NSEvent.removeMonitor(monitor) }
-        }
-
-        private func handle(_ event: NSEvent) -> NSEvent? {
-            guard
-                event.keyCode == 36,
-                event.modifierFlags.intersection(.deviceIndependentFlagsMask) == .shift,
-                let view = terminalView,
-                (view.window?.firstResponder as? NSView).map { $0 === view || $0.isDescendant(of: view) } == true
-            else { return event }
-            // Wrap in bracketed paste markers so the newline is treated as literal text, not submit
-            view.process?.send(data: ArraySlice([0x1B, 0x5B, 0x32, 0x30, 0x30, 0x7E, 0x0A, 0x1B, 0x5B, 0x32, 0x30, 0x31, 0x7E]))
-            return nil
-        }
+    private func pin(_ view: LocalProcessTerminalView, to container: NSView) {
+        view.frame = container.bounds
+        view.autoresizingMask = [.width, .height]
+        container.addSubview(view)
     }
 }

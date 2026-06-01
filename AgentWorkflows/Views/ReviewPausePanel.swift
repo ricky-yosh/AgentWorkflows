@@ -74,3 +74,21 @@ struct ReviewPausePanel: View {
         .background(.thinMaterial)
     }
 }
+
+// MARK: - Previews
+
+#Preview("Review Pause — Plan Review") {
+    ReviewPausePanel(
+        stepID: "plan-review",
+        progressDirectoryURL: URL(fileURLWithPath: "/tmp/preview"),
+        onContinue: {}
+    )
+}
+
+#Preview("Review Pause — Verify Review") {
+    ReviewPausePanel(
+        stepID: "verify-review",
+        progressDirectoryURL: URL(fileURLWithPath: "/tmp/preview"),
+        onContinue: {}
+    )
+}

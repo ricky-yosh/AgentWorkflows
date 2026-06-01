@@ -70,14 +70,17 @@ struct WorkflowStep: Codable, Equatable, Identifiable {
     /// Optional; omitting it preserves the unbounded behavior. Encoded as
     /// `max_iterations` in YAML.
     var maxIterations: Int?
+    /// Human-readable description shown below the step name in the UI.
+    /// Optional; steps without a description show nothing.
+    var description: String?
 
     enum CodingKeys: String, CodingKey {
-        case id, type, label, agent, prompt, steps
+        case id, type, label, agent, prompt, steps, description
         case promptFile = "prompt_file"
         case maxIterations = "max_iterations"
     }
 
-    init(id: String, type: StepType, label: String? = nil, agent: String?, prompt: String?, promptFile: String?, steps: [WorkflowStep]? = nil, maxIterations: Int? = nil) {
+    init(id: String, type: StepType, label: String? = nil, agent: String?, prompt: String?, promptFile: String?, steps: [WorkflowStep]? = nil, maxIterations: Int? = nil, description: String? = nil) {
         self.id = id
         self.type = type
         self.label = label
@@ -86,6 +89,7 @@ struct WorkflowStep: Codable, Equatable, Identifiable {
         self.promptFile = promptFile
         self.steps = steps
         self.maxIterations = maxIterations
+        self.description = description
     }
 
     init(from decoder: Decoder) throws {
@@ -98,6 +102,7 @@ struct WorkflowStep: Codable, Equatable, Identifiable {
         promptFile = try container.decodeIfPresent(String.self, forKey: .promptFile)
         steps = try container.decodeIfPresent([WorkflowStep].self, forKey: .steps)
         maxIterations = try container.decodeIfPresent(Int.self, forKey: .maxIterations)
+        description = try container.decodeIfPresent(String.self, forKey: .description)
     }
 }
 
@@ -139,26 +144,32 @@ extension Workflow {
         phases: [
             Phase(name: "Plan", steps: [
                 WorkflowStep(id: "plan-grill-with-docs", type: .prompt, label: "Grill with Docs",
-                             agent: nil, prompt: "/grill-with-docs", promptFile: nil),
+                             agent: nil, prompt: "/grill-with-docs", promptFile: nil,
+                             description: "Interview and refine requirements"),
                 WorkflowStep(id: "plan-to-prd", type: .prompt, label: "Write PRD",
-                             agent: nil, prompt: "/to-prd {progress-path}", promptFile: nil),
+                             agent: nil, prompt: "/to-prd {progress-path}", promptFile: nil,
+                             description: "Generate PRD from conversation"),
                 WorkflowStep(id: "plan-to-tasks", type: .prompt, label: "Tasks",
-                             agent: nil, prompt: "/to-tasks {progress-path}", promptFile: nil),
+                             agent: nil, prompt: "/to-tasks {progress-path}", promptFile: nil,
+                             description: "Decompose PRD into task backlog"),
             ]),
             Phase(name: "Build", steps: [
                 WorkflowStep(id: "build-iterate", type: .iterateTasks, label: nil,
                              agent: nil, prompt: nil, promptFile: nil,
                              steps: [
                                 WorkflowStep(id: "build-ralph", type: .prompt, label: "Ralph",
-                                             agent: nil, prompt: "/ralph {progress-path}", promptFile: nil),
+                                             agent: nil, prompt: "/ralph {progress-path}", promptFile: nil,
+                                             description: "Iterate through task backlog (runs per-task)"),
                              ],
                              maxIterations: 25),
             ]),
             Phase(name: "Verify", steps: [
                 WorkflowStep(id: "verify-restart-cli", type: .restartCLI, label: nil,
-                             agent: nil, prompt: nil, promptFile: nil),
+                             agent: nil, prompt: nil, promptFile: nil,
+                             description: "Restart the CLI agent"),
                 WorkflowStep(id: "verify-qa", type: .prompt, label: "QA Session",
-                             agent: nil, prompt: "/qa {progress-path}", promptFile: nil),
+                             agent: nil, prompt: "/qa {progress-path}", promptFile: nil,
+                             description: "Interactive QA session"),
             ]),
         ]
     )

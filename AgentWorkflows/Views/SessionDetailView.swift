@@ -1,7 +1,6 @@
 import SwiftUI
-import AppKit
 
-/// Session detail layout: terminal in the center, workflow inspector on the right.
+/// Session detail layout: terminal as permanent left pane, tabs on the right.
 struct SessionDetailView<Header: View>: View {
     let session: Session
     @ViewBuilder let headerContent: Header
@@ -10,7 +9,7 @@ struct SessionDetailView<Header: View>: View {
     @Environment(EngineManager.self) private var engineManager
     @Environment(SettingsStore.self) private var settingsStore
 
-    @State private var inspectorPresented = true
+    @State private var terminalDividerState = TerminalDividerState()
     @State private var phaseExpansion: [AnyHashable: Bool] = [:]
     @State private var workflow: Workflow?
 
@@ -19,10 +18,40 @@ struct SessionDetailView<Header: View>: View {
     /// same seed without re-prompting.
     @State private var seedIdea: String?
     @State private var seedPromptPresented = false
-    @State private var selectedTab: SessionTab = .terminal
-
     private enum SessionTab: Hashable {
-        case terminal, iterations, files, diff, log
+        case iterations, files, diff, log, workflow
+
+        var rawValue: String {
+            switch self {
+            case .iterations: return "iterations"
+            case .files: return "files"
+            case .diff: return "diff"
+            case .log: return "log"
+            case .workflow: return "workflow"
+            }
+        }
+
+        init(rawValue: String) {
+            switch rawValue {
+            case "files": self = .files
+            case "diff": self = .diff
+            case "log": self = .log
+            case "workflow": self = .workflow
+            default: self = .iterations
+            }
+        }
+    }
+
+    private var selectedTab: SessionTab {
+        get { SessionTab(rawValue: engineManager.selectedDetailTab(for: session.id)) }
+        nonmutating set { engineManager.setSelectedDetailTab(newValue.rawValue, for: session.id) }
+    }
+
+    private var selectedTabBinding: Binding<SessionTab> {
+        Binding(
+            get: { selectedTab },
+            set: { selectedTab = $0 }
+        )
     }
 
     private var workflowEngine: WorkflowEngine? {
@@ -30,50 +59,85 @@ struct SessionDetailView<Header: View>: View {
     }
 
     var body: some View {
-        VStack(spacing: 0) {
-            headerContent
-            SessionHeaderStatus(
-                status: engineManager.runStatus(for: session.id),
-                session: session,
-                workflow: workflow
-            )
-            if let stepID = reviewPauseStepID {
-                Divider()
-                ReviewPausePanel(
-                    stepID: stepID,
-                    progressDirectoryURL: progressDirectoryURL,
-                    onContinue: continueExecution
-                )
-            }
-            tabbedBody
-        }
-            .inspector(isPresented: $inspectorPresented) {
-                WorkflowInspector(
-                    session: session,
-                    workflow: workflow,
-                    workflowEngine: workflowEngine,
-                    phaseExpansion: $phaseExpansion,
-                    onRunFromHere: runFromHere
-                )
-            }
-            .toolbar {
-                ToolbarItemGroup(placement: .primaryAction) {
-                    playStopButton
-                    Button {
-                        inspectorPresented.toggle()
-                    } label: {
-                        Label("Inspector", systemImage: "sidebar.trailing")
+        GeometryReader { geometry in
+            VStack(spacing: 0) {
+                headerContent
+                HSplitView {
+                    if !terminalDividerState.collapsed {
+                        terminalPane
+                            .frame(
+                                minWidth: TerminalDividerState.minimumWidth,
+                                maxWidth: terminalDividerState.fullWidth
+                                    ? .infinity
+                                    : geometry.size.width * TerminalDividerState.maxWindowFraction
+                            )
+                            .background(SplitViewBridge(state: terminalDividerState))
                     }
-                    .help("Toggle Inspector (⌃⌘I)")
+                    if !terminalDividerState.fullWidth {
+                        tabPane
+                            .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    }
                 }
             }
-            .onReceive(NotificationCenter.default.publisher(for: .awToggleInspector)) { _ in
-                inspectorPresented.toggle()
+        }
+        .toolbar {
+            ToolbarItem(placement: .principal) {
+                Picker("Tab", selection: selectedTabBinding) {
+                    Image(systemName: "repeat")
+                        .accessibilityLabel("Iterations")
+                        .tag(SessionTab.iterations)
+                    Image(systemName: "folder")
+                        .accessibilityLabel("Files")
+                        .tag(SessionTab.files)
+                    Image(systemName: "plusminus")
+                        .accessibilityLabel("Diff")
+                        .tag(SessionTab.diff)
+                    Image(systemName: "list.bullet.rectangle")
+                        .accessibilityLabel("Log")
+                        .tag(SessionTab.log)
+                    Image(systemName: "arrow.triangle.branch")
+                        .accessibilityLabel("Workflow")
+                        .tag(SessionTab.workflow)
+                }
+                .pickerStyle(.segmented)
             }
-            .onReceive(NotificationCenter.default.publisher(for: .awSessionTogglePlayback)) { _ in
-                togglePlayback()
+            ToolbarItemGroup(placement: .primaryAction) {
+                Button {
+                    withAnimation(.easeInOut(duration: 0.2)) {
+                        terminalDividerState.toggleFullWidth()
+                    }
+                } label: {
+                    Image(systemName: terminalDividerState.fullWidth
+                          ? "arrow.down.right.and.arrow.up.left"
+                          : "arrow.up.left.and.arrow.down.right")
+                }
+                .help(terminalDividerState.fullWidth ? "Exit Full Width" : "Full Width Terminal")
+                playStopButton
             }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .awToggleTerminal)) { _ in
+            withAnimation(.easeInOut(duration: 0.2)) {
+                terminalDividerState.toggle()
+            }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .awToggleFullWidthTerminal)) { _ in
+            withAnimation(.easeInOut(duration: 0.2)) {
+                terminalDividerState.toggleFullWidth()
+            }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .awSessionTogglePlayback)) { _ in
+            togglePlayback()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .awSelectSessionTab)) { notification in
+            if let rawValue = notification.object as? String {
+                selectedTab = SessionTab(rawValue: rawValue)
+            }
+        }
             .task(id: session.id) {
+                phaseExpansion = [:]
+                seedIdea = nil
+                seedPromptPresented = false
+                workflow = nil
                 loadWorkflow()
                 primeTaskCounts()
             }
@@ -113,12 +177,34 @@ struct SessionDetailView<Header: View>: View {
     }
 
     @ViewBuilder
-    private var tabbedBody: some View {
-        TabView(selection: $selectedTab) {
-            TerminalHost(session: session)
-                .tabItem { Label("Terminal", systemImage: "terminal") }
-                .tag(SessionTab.terminal)
+    private var terminalPane: some View {
+        TerminalHost(session: session)
+    }
 
+    @ViewBuilder
+    private var tabPane: some View {
+        VStack(spacing: 0) {
+            if let stepID = reviewPauseStepID {
+                Divider()
+                ReviewPausePanel(
+                    stepID: stepID,
+                    progressDirectoryURL: progressDirectoryURL,
+                    onContinue: continueExecution
+                )
+            }
+            tabbedBody
+        }
+    }
+
+    @ViewBuilder
+    private var tabbedBody: some View {
+        tabContent
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    @ViewBuilder
+    private var tabContent: some View {
+        ZStack {
             IterationsView(
                 sessionID: session.id,
                 tasksFileURL: SessionDirectoryLayout.tasksFileURL(
@@ -126,51 +212,31 @@ struct SessionDetailView<Header: View>: View {
                     sessionID: session.id
                 )
             )
-            .tabItem { Label("Iterations", systemImage: "repeat") }
-            .tag(SessionTab.iterations)
+            .opacity(selectedTab == .iterations ? 1 : 0)
+            .allowsHitTesting(selectedTab == .iterations)
 
-            DocsView(session: session)
-                .tabItem { Label("Files", systemImage: "folder") }
-                .tag(SessionTab.files)
+            DocsView(session: session, terminalCollapsed: terminalDividerState.collapsed)
+                .opacity(selectedTab == .files ? 1 : 0)
+                .allowsHitTesting(selectedTab == .files)
 
             SessionDiffView(session: session)
-                .tabItem { Label("Diff", systemImage: "plusminus") }
-                .tag(SessionTab.diff)
+                .opacity(selectedTab == .diff ? 1 : 0)
+                .allowsHitTesting(selectedTab == .diff)
 
             ExecutionLogTabView(sessionID: session.id)
-                .tabItem { Label("Log", systemImage: "list.bullet.rectangle") }
-                .tag(SessionTab.log)
-        }
-        .background(TabTooltipSetter(tooltips: [
-            "Terminal (⌘1)",
-            "Iterations (⌘2)",
-            "Files (⌘3)",
-            "Diff (⌘4)",
-            "Log (⌘5)"
-        ]))
-        .overlay(tabShortcuts)
-    }
+                .opacity(selectedTab == .log ? 1 : 0)
+                .allowsHitTesting(selectedTab == .log)
 
-    @ViewBuilder
-    private var tabShortcuts: some View {
-        ZStack {
-            Button("") { selectedTab = .terminal }
-                .keyboardShortcut("1", modifiers: .command)
-                .hidden()
-            Button("") { selectedTab = .iterations }
-                .keyboardShortcut("2", modifiers: .command)
-                .hidden()
-            Button("") { selectedTab = .files }
-                .keyboardShortcut("3", modifiers: .command)
-                .hidden()
-            Button("") { selectedTab = .diff }
-                .keyboardShortcut("4", modifiers: .command)
-                .hidden()
-            Button("") { selectedTab = .log }
-                .keyboardShortcut("5", modifiers: .command)
-                .hidden()
+            WorkflowTab(
+                session: session,
+                workflow: workflow,
+                workflowEngine: workflowEngine,
+                phaseExpansion: $phaseExpansion,
+                onRunFromHere: { runFromHere(phaseIndex: $0, stepIndex: $1) }
+            )
+            .opacity(selectedTab == .workflow ? 1 : 0)
+            .allowsHitTesting(selectedTab == .workflow)
         }
-        .frame(width: 0, height: 0)
     }
 
     private func syncRunStatusState(_ state: SessionState) {
@@ -221,7 +287,10 @@ struct SessionDetailView<Header: View>: View {
                 }
                 .help("Continue Session (⌘↩)")
             case .completed:
-                EmptyView()
+                Button(action: restartFromCompleted) {
+                    Image(systemName: "play.fill")
+                }
+                .help("Restart completed session (⌘↩)")
             case .stalled:
                 Button(action: continueExecution) {
                     Image(systemName: "play.fill")
@@ -295,7 +364,7 @@ struct SessionDetailView<Header: View>: View {
         case .paused, .stalled:
             continueExecution()
         case .completed:
-            break
+            restartFromCompleted()
         }
     }
 
@@ -336,6 +405,38 @@ struct SessionDetailView<Header: View>: View {
             let workflowEngine = engineManager.createWorkflowEngine(session: session, workflow: workflow, settingsStore: settingsStore)
             workflowEngine.start()
         }
+    }
+
+    private func restartFromCompleted() {
+        guard let workflow else { return }
+
+        var adjusted = session
+        adjusted.completedStepIDs = adjusted.completedStepIDs.filter { $0 != "verify-qa" }
+        adjusted.currentPhaseIndex = 2
+        adjusted.currentStepIndex = 1
+
+        sessionStore.updateSessionProgress(
+            session.id,
+            phaseIndex: adjusted.currentPhaseIndex,
+            stepIndex: adjusted.currentStepIndex,
+            completedStepIDs: adjusted.completedStepIDs
+        )
+        try? sessionStore.transitionSession(session.id, to: .idle)
+
+        do {
+            try sessionStore.transitionSession(session.id, to: .running)
+        } catch {
+            return
+        }
+
+        ensureTerminalRunning(phaseIndex: adjusted.currentPhaseIndex)
+        let workflowEngine = engineManager.createWorkflowEngine(
+            session: adjusted,
+            workflow: workflow,
+            settingsStore: settingsStore,
+            seedIntent: seedIdea
+        )
+        workflowEngine.start()
     }
 
     private func runFromHere(phaseIndex: Int, stepIndex: Int) {
@@ -381,7 +482,7 @@ struct SessionDetailView<Header: View>: View {
 
     private func terminalToolIdentifier(forPhaseIndex phaseIndex: Int?) -> String {
         guard let phaseIndex, let workflow, phaseIndex < workflow.phases.count else {
-            return engineManager.defaultAgent
+            return ProcessRunnerFactory.toolIdentifier(for: settingsStore.settings.buildCLI)
         }
         switch workflow.phases[phaseIndex].name.lowercased() {
         case "plan":
@@ -389,7 +490,7 @@ struct SessionDetailView<Header: View>: View {
         case "verify":
             return ProcessRunnerFactory.toolIdentifier(for: settingsStore.settings.verifyCLI)
         default:
-            return engineManager.defaultAgent
+            return ProcessRunnerFactory.toolIdentifier(for: settingsStore.settings.buildCLI)
         }
     }
 
@@ -426,28 +527,6 @@ extension SessionDetailView where Header == EmptyView {
     }
 }
 
-/// Walks up the NSView hierarchy from its anchor to find the nearest NSTabView
-/// and sets toolTip on each NSTabViewItem in order.
-private struct TabTooltipSetter: NSViewRepresentable {
-    let tooltips: [String]
-
-    func makeNSView(context: Context) -> NSView { NSView() }
-
-    func updateNSView(_ nsView: NSView, context: Context) {
-        DispatchQueue.main.async {
-            var current: NSView? = nsView
-            while let v = current {
-                if let tabView = v as? NSTabView {
-                    for (item, tip) in zip(tabView.tabViewItems, tooltips) {
-                        item.toolTip = tip
-                    }
-                    return
-                }
-                current = v.superview
-            }
-        }
-    }
-}
 
 struct MissingSessionDetailView: View {
     let entry: SessionRegistryEntry

@@ -209,3 +209,17 @@ enum DiffViewerOption: String, CaseIterable, Identifiable {
         }
     }
 }
+
+// MARK: - Previews
+
+#Preview("Editor Preference") {
+    EditorPreferenceView(editorCommand: .constant("xed {path}"))
+}
+
+#Preview("Terminal Preference") {
+    TerminalPreferenceView(terminalCommand: .constant(#"open -a Terminal {path}"#))
+}
+
+#Preview("Diff Viewer Preference") {
+    DiffViewerPreferenceView(diffViewerCommand: .constant(#"open -a "Sourcetree" {path}"#))
+}

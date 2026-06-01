@@ -63,7 +63,8 @@ struct WorkflowInspector: View {
             .padding(.horizontal, 16)
             .padding(.vertical, 12)
         }
-        .inspectorColumnWidth(min: 240, ideal: 320, max: 420)
+        .inspectorColumnWidth(min: 240, ideal: 240, max: 240)
+        .background(InspectorLayoutFixer(targetWidth: 240))
         .onReceive(NotificationCenter.default.publisher(for: .awSessionMarkStepComplete)) { _ in
             engineManager.markStepComplete(sessionID: session.id)
         }
@@ -91,6 +92,7 @@ struct WorkflowInspector: View {
                     currentPhaseIndex: displayPhaseIndex,
                     currentStepIndex: displayStepIndex,
                     completedStepIDs: Set(displayCompletedStepIDs),
+                    executionState: workflowEngine?.executionState ?? .idle,
                     isExpanded: isExpanded,
                     onRunFromHere: { phaseIndex, stepIndex in
                         onRunFromHere?(phaseIndex, stepIndex)

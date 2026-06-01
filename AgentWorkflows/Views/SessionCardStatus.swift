@@ -30,7 +30,7 @@ struct SessionCardStatus: View {
                 }
             }
         }
-        .font(.caption2.monospaced())
+        .font(.caption2)
         .foregroundStyle(.secondary)
         .lineLimit(1)
     }

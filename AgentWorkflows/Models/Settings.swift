@@ -38,6 +38,15 @@ nonisolated enum CLIPreset: String, CaseIterable, Codable, Identifiable {
     var id: String { rawValue }
     static let fallback: CLIPreset = .claude
 
+    var displayName: String {
+        switch self {
+        case .claude: return "Claude"
+        case .codex: return "Codex"
+        case .pi: return "Pi"
+        case .openCode: return "OpenCode"
+        }
+    }
+
     /// Everything needed to spawn a streaming subprocess for this CLI.
     struct InvocationRecipe {
         let binaryName: String

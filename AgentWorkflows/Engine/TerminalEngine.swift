@@ -12,13 +12,15 @@ final class TerminalEngine: AgentEngine {
     var onStepComplete: (() -> Void)?
     var onProcessExit: (() -> Void)?
     var onProcessReady: (() -> Void)?
+    var onDebugLog: ((String) -> Void)?
     private let writeQueue = DispatchQueue(label: "aw.terminal.write-queue")
     private var processReady = false
     private var pendingPrompt: String?
     private var readinessTimer: DispatchWorkItem?
+    private var readyViaTimeout = false
 
     init() {
-        let view = LocalProcessTerminalView(frame: .zero)
+        let view = ScrollTrackingTerminalView(frame: .zero)
         self.terminalView = view
         // Delegate set after init since self isn't available in property initializers
         view.processDelegate = self
@@ -39,9 +41,15 @@ final class TerminalEngine: AgentEngine {
         ])
     }
 
+    private func debugLog(_ msg: String) {
+        let cb = onDebugLog
+        DispatchQueue.main.async { cb?(msg) }
+    }
+
     func start(workingDirectory: String, tool: String) throws {
         guard engineState != .running else { return }
         processReady = false
+        readyViaTimeout = false
         pendingPrompt = nil
         readinessTimer?.cancel()
 
@@ -77,10 +85,15 @@ final class TerminalEngine: AgentEngine {
             )
         }
         engineState = .running
+        let launchDesc = command.hasPrefix("/")
+            ? "\(command) \(args.joined(separator: " "))"
+            : "zsh -li -c exec \(command) \(args.joined(separator: " "))"
+        debugLog("[engine/\(tool)] start — \(launchDesc)")
 
         // Fallback: if no delegate signal fires within 5 seconds, consider
         // the process ready and flush any queued prompt.
         let timer = DispatchWorkItem { [weak self] in
+            self?.readyViaTimeout = true
             self?.markReady()
         }
         readinessTimer = timer
@@ -99,8 +112,10 @@ final class TerminalEngine: AgentEngine {
         // so embedded newlines don't fire Enter. The user presses send manually.
         let pasted = "\u{1b}[200~\(stripped)\u{1b}[201~"
         if processReady {
+            debugLog("[engine] inject \(stripped.count)ch — sent immediately")
             sendRaw(pasted)
         } else {
+            debugLog("[engine] inject \(stripped.count)ch — queued (process not ready)")
             pendingPrompt = pasted
         }
     }
@@ -130,6 +145,12 @@ final class TerminalEngine: AgentEngine {
         processReady = true
         readinessTimer?.cancel()
         readinessTimer = nil
+        let via = readyViaTimeout ? "timeout fallback" : "delegate signal"
+        if let prompt = pendingPrompt {
+            debugLog("[engine] ready (\(via)) — flushing \(prompt.count)ch queued prompt")
+        } else {
+            debugLog("[engine] ready (\(via))")
+        }
         onProcessReady?()
         if let prompt = pendingPrompt {
             pendingPrompt = nil
@@ -154,9 +175,11 @@ final class TerminalEngine: AgentEngine {
     }
 
     func terminate() {
+        debugLog("[engine] terminate — state was \(engineState)")
         readinessTimer?.cancel()
         readinessTimer = nil
         processReady = false
+        readyViaTimeout = false
         pendingPrompt = nil
         terminalView.terminate()
         engineState = .idle
@@ -180,6 +203,8 @@ extension TerminalEngine: LocalProcessTerminalViewDelegate {
 
     func processTerminated(source: TerminalView, exitCode: Int32?) {
         DispatchQueue.main.async { [weak self] in
+            let code = exitCode.map { "\($0)" } ?? "nil"
+            self?.debugLog("[engine] process exited \(code)")
             self?.engineState = .terminated(exitCode: exitCode)
             self?.onProcessExit?()
         }

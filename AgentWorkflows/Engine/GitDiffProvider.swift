@@ -3,6 +3,12 @@ import Foundation
 // MARK: - Pure parser (stateless)
 
 enum GitDiffParser {
+    /// Extract the starting line number from a hunk range like "45,8" or just "45".
+    private static func parseStart(_ s: Substring) -> Int {
+        let numStr = s.split(separator: ",").first ?? s
+        return Int(numStr) ?? 1
+    }
+
     static func parse(_ output: String) -> [FileDiff] {
         guard !output.isEmpty else { return [] }
 
@@ -11,6 +17,8 @@ enum GitDiffParser {
         var currentHunks: [DiffHunk] = []
         var currentContextLine = ""
         var currentLines: [DiffLine] = []
+        var oldLineNum: Int = 0
+        var newLineNum: Int = 0
 
         func flushHunk() {
             guard !currentLines.isEmpty else { return }
@@ -40,12 +48,27 @@ enum GitDiffParser {
                 currentContextLine = parts.count > 1
                     ? parts[1].trimmingCharacters(in: .whitespaces)
                     : ""
+                // Parse old start and new start from hunk header: @@ -oldStart[,oldCount] +newStart[,newCount] @@
+                if let headerPart = parts.first {
+                    let tokens = headerPart.split(separator: " ")
+                    if tokens.count >= 3 {
+                        oldLineNum = parseStart(tokens[1].dropFirst())  // drop leading "-"
+                        newLineNum = parseStart(tokens[2].dropFirst())  // drop leading "+"
+                    }
+                }
             } else if line.hasPrefix("+") && !line.hasPrefix("+++") {
-                currentLines.append(DiffLine(kind: .added, text: String(line.dropFirst())))
+                currentLines.append(DiffLine(kind: .added, text: String(line.dropFirst()),
+                    oldLineNumber: nil, newLineNumber: newLineNum))
+                newLineNum += 1
             } else if line.hasPrefix("-") && !line.hasPrefix("---") {
-                currentLines.append(DiffLine(kind: .removed, text: String(line.dropFirst())))
+                currentLines.append(DiffLine(kind: .removed, text: String(line.dropFirst()),
+                    oldLineNumber: oldLineNum, newLineNumber: nil))
+                oldLineNum += 1
             } else if line.hasPrefix(" ") {
-                currentLines.append(DiffLine(kind: .context, text: String(line.dropFirst())))
+                currentLines.append(DiffLine(kind: .context, text: String(line.dropFirst()),
+                    oldLineNumber: oldLineNum, newLineNumber: newLineNum))
+                oldLineNum += 1
+                newLineNum += 1
             }
         }
         flushFile()

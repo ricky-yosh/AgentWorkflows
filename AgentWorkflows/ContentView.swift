@@ -21,7 +21,8 @@ extension FocusedValues {
 extension Notification.Name {
     static let awShowNewSession = Notification.Name("AWShowNewSession")
     static let awNewSessionSameFolder = Notification.Name("AWNewSessionSameFolder")
-    static let awToggleInspector = Notification.Name("AWToggleInspector")
+    static let awToggleTerminal = Notification.Name("AWToggleTerminal")
+    static let awToggleFullWidthTerminal = Notification.Name("AWToggleFullWidthTerminal")
     static let awCycleSessionForward = Notification.Name("AWCycleSessionForward")
     static let awCycleSessionBackward = Notification.Name("AWCycleSessionBackward")
     static let awSessionTogglePlayback = Notification.Name("AWSessionTogglePlayback")
@@ -34,6 +35,7 @@ extension Notification.Name {
     static let awSessionRename = Notification.Name("AWSessionRename")
     static let awSessionDelete = Notification.Name("AWSessionDelete")
     static let awSessionMarkStepComplete = Notification.Name("AWSessionMarkStepComplete")
+    static let awSelectSessionTab = Notification.Name("AWSelectSessionTab")
 }
 
 struct IsSessionSelectedKey: FocusedValueKey {
@@ -83,12 +85,16 @@ struct ContentView: View {
     var body: some View {
         NavigationSplitView {
             SessionSidebarView(selection: selectedItemBinding, showingNewSession: showNewSessionBinding)
+                .navigationSplitViewColumnWidth(220)
         } detail: {
             mainContent
+                .frame(minWidth: 500)
+                .background { SidebarAnimationBridge() }
         }
         .background {
             WindowNumberAccessor(windowNumber: $windowNumber)
             FocusedValuePublisher(action: newSessionAction, isSessionSelected: sessionIsSelected)
+            WindowMinSizeSetter(minSize: CGSize(width: 900, height: 500))
         }
         .sheet(isPresented: showNewSessionBinding) {
             NewSessionView(
@@ -216,7 +222,6 @@ struct ContentView: View {
                 SessionDetailView(session: session) {
                     bannerView
                 }
-                .id(session.id)
             } else if let entry = sessionStore.missingSessions.first(where: { $0.id == id }) {
                 MissingSessionDetailView(entry: entry)
                     .id(entry.id)
@@ -429,6 +434,27 @@ private struct WindowNumberAccessor: NSViewRepresentable {
         DispatchQueue.main.async {
             self.windowNumber = newNumber
         }
+    }
+}
+
+// MARK: - Window Min Size Setter
+
+/// Sets NSWindow.minSize directly, bypassing SwiftUI's content-size negotiation
+/// which varies with NavigationSplitView state and can fall below the intended floor.
+private struct WindowMinSizeSetter: NSViewRepresentable {
+    let minSize: CGSize
+
+    func makeNSView(context: Context) -> NSView {
+        let view = NSView()
+        DispatchQueue.main.async {
+            view.window?.minSize = minSize
+        }
+        return view
+    }
+
+    func updateNSView(_ nsView: NSView, context: Context) {
+        guard nsView.window?.minSize != minSize else { return }
+        nsView.window?.minSize = minSize
     }
 }
 

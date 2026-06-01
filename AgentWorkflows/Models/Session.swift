@@ -58,11 +58,12 @@ nonisolated struct Session: Codable, Identifiable, Equatable {
              (.running, .paused),
              (.paused, .running),
              (.running, .idle),
-             (.running, .completed),
-             (.running, .stalled),
-             (.paused, .stalled),
-             (.stalled, .idle),
-             (.stalled, .running):
+              (.running, .completed),
+              (.running, .stalled),
+              (.paused, .stalled),
+              (.stalled, .idle),
+              (.stalled, .running),
+              (.completed, .idle):
             valid = true
         default:
             valid = false

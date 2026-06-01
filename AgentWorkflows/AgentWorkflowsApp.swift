@@ -18,10 +18,16 @@ private struct AppCommands: Commands {
         }
 
         CommandGroup(after: .sidebar) {
-            Button("Toggle Inspector") {
-                NotificationCenter.default.post(name: .awToggleInspector, object: nil)
+            Button("Toggle Terminal") {
+                NotificationCenter.default.post(name: .awToggleTerminal, object: nil)
             }
-            .keyboardShortcut("i", modifiers: [.command, .control])
+            .keyboardShortcut("\\", modifiers: .command)
+            .disabled(isSessionSelected != true)
+
+            Button("Full Width Terminal") {
+                NotificationCenter.default.post(name: .awToggleFullWidthTerminal, object: nil)
+            }
+            .keyboardShortcut("\\", modifiers: [.command, .shift])
             .disabled(isSessionSelected != true)
 
             Button("Next Session") {
@@ -36,6 +42,34 @@ private struct AppCommands: Commands {
         }
 
         CommandMenu("Session") {
+            Button("Iterations") {
+                NotificationCenter.default.post(name: .awSelectSessionTab, object: "iterations")
+            }
+            .keyboardShortcut("1", modifiers: .command)
+            .disabled(isSessionSelected != true)
+            Button("Files") {
+                NotificationCenter.default.post(name: .awSelectSessionTab, object: "files")
+            }
+            .keyboardShortcut("2", modifiers: .command)
+            .disabled(isSessionSelected != true)
+            Button("Diff") {
+                NotificationCenter.default.post(name: .awSelectSessionTab, object: "diff")
+            }
+            .keyboardShortcut("3", modifiers: .command)
+            .disabled(isSessionSelected != true)
+            Button("Log") {
+                NotificationCenter.default.post(name: .awSelectSessionTab, object: "log")
+            }
+            .keyboardShortcut("4", modifiers: .command)
+            .disabled(isSessionSelected != true)
+            Button("Workflow") {
+                NotificationCenter.default.post(name: .awSelectSessionTab, object: "workflow")
+            }
+            .keyboardShortcut("5", modifiers: .command)
+            .disabled(isSessionSelected != true)
+
+            Divider()
+
             Button("Play/Pause Session") {
                 NotificationCenter.default.post(name: .awSessionTogglePlayback, object: nil)
             }
@@ -153,7 +187,9 @@ struct AgentWorkflowsApp: App {
                 .environment(engineManager)
                 .environment(windowManager)
                 .environment(settingsStore)
+                .frame(minWidth: 900, minHeight: 500)
         }
+        .windowResizability(.contentMinSize)
         .commands {
             SidebarCommands()
             AppCommands()
