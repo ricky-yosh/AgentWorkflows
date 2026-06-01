@@ -195,7 +195,7 @@ struct IterationCardView: View {
         } else {
             ScrollViewReader { proxy in
                 ScrollView {
-                    VStack(alignment: .leading, spacing: 4) {
+                    LazyVStack(alignment: .leading, spacing: 4) {
                         ForEach(Array(visibleEvents.enumerated()), id: \.offset) { _, event in
                             EventLineView(event: event)
                         }

@@ -47,7 +47,7 @@ struct ExecutionLogView: View {
                 .padding(.top, 6)
         } else {
             ScrollView {
-                VStack(alignment: .leading, spacing: 6) {
+                LazyVStack(alignment: .leading, spacing: 6) {
                     ForEach(events) { event in
                         EventRow(event: event)
                     }

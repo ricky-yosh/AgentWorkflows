@@ -6,7 +6,24 @@ struct HomeView: View {
     @Binding var selection: SidebarItem?
     @Binding var showingNewSession: Bool
 
-    private var recentSessionsWithMtime: [(session: Session, mtime: Date)] {
+    @State private var recentSessions: [(session: Session, mtime: Date)] = []
+
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 28) {
+                quickstartCTA
+                if !recentSessions.isEmpty {
+                    recentSessionsGrid
+                }
+            }
+            .padding(24)
+        }
+        .task(id: sessionStore.sessions.map(\.id)) {
+            recentSessions = computeRecentSessions()
+        }
+    }
+
+    private func computeRecentSessions() -> [(session: Session, mtime: Date)] {
         sessionStore.sessions
             .map { session -> (Session, Date) in
                 let dir = URL(fileURLWithPath: session.workingDirectory)
@@ -17,18 +34,6 @@ struct HomeView: View {
             .sorted { $0.1 > $1.1 }
             .prefix(8)
             .map { $0 }
-    }
-
-    var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 28) {
-                quickstartCTA
-                if !recentSessionsWithMtime.isEmpty {
-                    recentSessionsGrid
-                }
-            }
-            .padding(24)
-        }
     }
 
     private var quickstartCTA: some View {
@@ -70,7 +75,7 @@ struct HomeView: View {
                 .padding(.horizontal, 4)
 
             LazyVGrid(columns: [GridItem(.adaptive(minimum: 200))], spacing: 12) {
-                ForEach(recentSessionsWithMtime, id: \.session.id) { item in
+                ForEach(recentSessions, id: \.session.id) { item in
                     RecentSessionCard(session: item.session, mtime: item.mtime) {
                         if !windowManager.focusWindow(for: item.session.id) {
                             selection = .session(item.session.id)

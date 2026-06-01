@@ -115,9 +115,13 @@ private func inlineText(_ markdown: String) -> Text {
 struct MarkdownView: View {
     let content: String
 
+    private var parsedBlocks: [MarkdownBlock] {
+        parseMarkdown(content)
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 24) {
-            ForEach(Array(parseMarkdown(content).enumerated()), id: \.offset) { _, block in
+            ForEach(Array(parsedBlocks.enumerated()), id: \.offset) { _, block in
                 blockView(block)
             }
         }

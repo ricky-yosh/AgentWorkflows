@@ -197,12 +197,6 @@ final class ScrollTrackingTerminalView: LocalProcessTerminalView {
             let isShiftEnter = event.keyCode == 36
                 && event.modifierFlags.intersection(significantModifiers) == .shift
 
-            NSLog("[STTV] keyDown keyCode=%d chars=%@ mods=0x%x isShiftEnter=%d",
-                  event.keyCode,
-                  event.characters ?? "(nil)",
-                  event.modifierFlags.rawValue,
-                  isShiftEnter ? 1 : 0)
-
             guard isShiftEnter else {
                 original(self, selector, event)
                 return
@@ -211,26 +205,15 @@ final class ScrollTrackingTerminalView: LocalProcessTerminalView {
             let kittyEmpty = self.terminal.keyboardEnhancementFlags.isEmpty
             let isAlt = self.terminal.isCurrentBufferAlternate
             let mouseOff = self.terminal.mouseMode == .off
-            NSLog("[STTV] ShiftEnter: kittyEmpty=%d isAlt=%d mouseOff=%d",
-                  kittyEmpty ? 1 : 0, isAlt ? 1 : 0, mouseOff ? 1 : 0)
 
             if isAlt || !mouseOff {
-                // TUI app (e.g. OpenCode/Bubble Tea): always send ESC+CR (\x1b\r).
-                // Even with Kitty active, SwiftTerm would send \x1b[13;2u which
-                // OpenCode parses correctly but bug #1505 causes it to fall through
-                // to submit. ESC+CR bypasses the command interceptor entirely.
-                NSLog("[STTV] -> sending ESC+CR [0x1B, 0x0D] to PTY")
                 self.process?.send(data: ArraySlice([0x1B, 0x0D]))
             } else if kittyEmpty {
-                // Plain scrollback CLI, no Kitty: bare LF + local echo.
-                NSLog("[STTV] -> sending 0x0A + local echo to PTY")
                 if let p = self.process {
                     p.send(data: ArraySlice([0x0A]))
                 }
                 self.feed(byteArray: ArraySlice([0x0D, 0x0A]))
             } else {
-                // Plain scrollback CLI with Kitty active: defer to SwiftTerm's encoder.
-                NSLog("[STTV] -> deferring to original (plain CLI + Kitty)")
                 original(self, selector, event)
             }
         }
