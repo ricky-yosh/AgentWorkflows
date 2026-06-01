@@ -65,7 +65,7 @@ struct SplitViewBridge: NSViewRepresentable {
 
     // MARK: - Coordinator
 
-    final class Coordinator {
+    @MainActor final class Coordinator {
         let state: TerminalDividerState
         private var observerToken: NSObjectProtocol?
         private var persistTimer: Timer?
@@ -80,7 +80,7 @@ struct SplitViewBridge: NSViewRepresentable {
                 object: splitView,
                 queue: .main
             ) { [weak self] notification in
-                self?.handleResize(notification)
+                MainActor.assumeIsolated { self?.handleResize(notification) }
             }
         }
 
@@ -104,9 +104,11 @@ struct SplitViewBridge: NSViewRepresentable {
             // No per-frame state mutations → no per-frame SessionDetailView re-renders.
             persistTimer?.invalidate()
             persistTimer = Timer.scheduledTimer(withTimeInterval: 0.3, repeats: false) { [weak self] _ in
-                guard let self else { return }
-                self.state.updateFromAppKit(width: self.lastSeenWidth)
-                self.state.persist()
+                MainActor.assumeIsolated {
+                    guard let self else { return }
+                    self.state.updateFromAppKit(width: self.lastSeenWidth)
+                    self.state.persist()
+                }
             }
         }
     }
