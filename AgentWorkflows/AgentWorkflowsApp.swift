@@ -154,7 +154,8 @@ struct AgentWorkflowsApp: App {
         NSWindow.allowsAutomaticWindowTabbing = false
 
         let fm = FileManager.default
-        let appSupport = fm.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
+        let appSupport = fm.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
+            ?? fm.homeDirectoryForCurrentUser.appendingPathComponent("Library/Application Support")
         let awRoot = appSupport.appendingPathComponent("AW")
 
         let sessionsDir = awRoot.appendingPathComponent("sessions")
