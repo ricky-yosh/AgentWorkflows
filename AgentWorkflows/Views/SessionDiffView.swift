@@ -15,6 +15,7 @@ struct SessionDiffView: View {
     @State private var filterQuery: String = ""
     @State private var expansionState: [String: Bool] = [:]
     @State private var sidebarVisible: Bool = true
+    @State private var filesPanelCollapsed: Bool = false
 
     private var filteredDiffs: [FileDiff] {
         guard !filterQuery.isEmpty else { return fileDiffs }
@@ -50,22 +51,73 @@ struct SessionDiffView: View {
             } else if filteredDiffs.isEmpty {
                 noMatchesView
             } else {
-                HSplitView {
-                    if sidebarVisible {
-                        DiffFileTreeView(
-                            fileDiffs: filteredDiffs,
-                            treeMode: treeMode,
-                            selectedFilePath: $selectedFilePath,
-                            expansionState: $expansionState
-                        )
-                        .frame(minWidth: 160, idealWidth: 200, maxWidth: 300)
-                    }
+                GeometryReader { geo in
+                    if geo.size.width < 700 {
+                        VSplitView {
+                            SideBySideDiffView(
+                                fileDiffs: sidebarVisible ? selectedDiffs : filteredDiffs,
+                                scrollToFile: nil
+                            )
+                            .frame(maxWidth: .infinity, maxHeight: .infinity)
 
-                    SideBySideDiffView(
-                        fileDiffs: sidebarVisible ? selectedDiffs : filteredDiffs,
-                        scrollToFile: nil
-                    )
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                            if sidebarVisible {
+                                VStack(spacing: 0) {
+                                    Button {
+                                        withAnimation(.easeInOut(duration: 0.18)) {
+                                            filesPanelCollapsed.toggle()
+                                        }
+                                    } label: {
+                                        HStack(spacing: 6) {
+                                            Image(systemName: filesPanelCollapsed ? "chevron.up" : "chevron.down")
+                                                .font(.system(size: 10, weight: .medium))
+                                            Text("Files")
+                                                .font(.system(size: 11, weight: .medium))
+                                            Spacer()
+                                        }
+                                        .padding(.horizontal, 10)
+                                        .padding(.vertical, 6)
+                                        .contentShape(Rectangle())
+                                    }
+                                    .buttonStyle(.plain)
+                                    .background(.bar)
+
+                                    if !filesPanelCollapsed {
+                                        Divider()
+                                        DiffFileTreeView(
+                                            fileDiffs: filteredDiffs,
+                                            treeMode: treeMode,
+                                            selectedFilePath: $selectedFilePath,
+                                            expansionState: $expansionState
+                                        )
+                                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                                    }
+                                }
+                                .frame(
+                                    minHeight: filesPanelCollapsed ? 29 : 100,
+                                    idealHeight: filesPanelCollapsed ? 29 : 200,
+                                    maxHeight: filesPanelCollapsed ? 29 : .infinity
+                                )
+                            }
+                        }
+                    } else {
+                        HSplitView {
+                            if sidebarVisible {
+                                DiffFileTreeView(
+                                    fileDiffs: filteredDiffs,
+                                    treeMode: treeMode,
+                                    selectedFilePath: $selectedFilePath,
+                                    expansionState: $expansionState
+                                )
+                                .frame(minWidth: 160, idealWidth: 200, maxWidth: 300)
+                            }
+
+                            SideBySideDiffView(
+                                fileDiffs: sidebarVisible ? selectedDiffs : filteredDiffs,
+                                scrollToFile: nil
+                            )
+                            .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        }
+                    }
                 }
             }
         }
