@@ -10,6 +10,8 @@ struct SessionDiffView: View {
     @State private var loadError: String?
     @State private var isLoading = false
 
+    @State private var watcher = WorkingDirectoryWatcher()
+
     @State private var selectedFilePath: String?
     @State private var treeMode: DiffFileTreeMode = .tree
     @State private var filterQuery: String = ""
@@ -122,10 +124,18 @@ struct SessionDiffView: View {
             }
         }
         .task(id: session.id.uuidString) {
+            let workingDirectory = URL(fileURLWithPath: session.workingDirectory)
+            watcher.onChange = { Task { await refresh() } }
+            watcher.start(watching: workingDirectory)
             await refresh()
         }
         .onChange(of: fileDiffs) { _, newDiffs in
-            if selectedFilePath == nil || !newDiffs.contains(where: { $0.filePath == selectedFilePath }) {
+            if let selected = selectedFilePath {
+                let stillValid = newDiffs.contains {
+                    $0.filePath == selected || $0.filePath.hasPrefix(selected + "/")
+                }
+                if !stillValid { selectedFilePath = newDiffs.first?.filePath }
+            } else {
                 selectedFilePath = newDiffs.first?.filePath
             }
         }
