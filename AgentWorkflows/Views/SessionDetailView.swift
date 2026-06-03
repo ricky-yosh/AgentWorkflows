@@ -50,7 +50,10 @@ struct SessionDetailView<Header: View>: View {
     private var selectedTabBinding: Binding<SessionTab> {
         Binding(
             get: { selectedTab },
-            set: { selectedTab = $0 }
+            set: {
+                selectedTab = $0
+                focusTerminal()
+            }
         )
     }
 
@@ -131,6 +134,7 @@ struct SessionDetailView<Header: View>: View {
         .onReceive(NotificationCenter.default.publisher(for: .awSelectSessionTab)) { notification in
             if let rawValue = notification.object as? String {
                 selectedTab = SessionTab(rawValue: rawValue)
+                focusTerminal()
             }
         }
             .task(id: session.id) {
@@ -140,6 +144,7 @@ struct SessionDetailView<Header: View>: View {
                 workflow = nil
                 loadWorkflow()
                 primeTaskCounts()
+                focusTerminal()
             }
             .onChange(of: session.workflowName) { _, _ in
                 loadWorkflow()
@@ -323,9 +328,28 @@ struct SessionDetailView<Header: View>: View {
     }
 
     private func focusTerminal() {
-        let activeTool = engineManager.activeTools(for: session.id).last ?? engineManager.defaultAgent
-        let terminalView = engineManager.engine(for: session.id, tool: activeTool).terminalView
-        terminalView.window?.makeFirstResponder(terminalView)
+        let sessionID = session.id
+        let isWorkflowSession = !session.workflowName.isEmpty
+        let em = engineManager
+        let settings = settingsStore
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+            // Mirror TerminalHost.currentEngine resolution so we focus the visible terminal,
+            // not a different (possibly hidden) engine.
+            let activeTools = em.activeTools(for: sessionID)
+            let activeTool: String
+            if let last = activeTools.last {
+                activeTool = last
+            } else if !isWorkflowSession {
+                let idlePreset = em.idleToolOverride(for: sessionID) ?? settings.settings.buildCLI
+                activeTool = ProcessRunnerFactory.toolIdentifier(for: idlePreset)
+            } else {
+                return  // workflow session with no active tool — terminal not yet visible
+            }
+            let terminalView = em.engine(for: sessionID, tool: activeTool).terminalView
+            guard let window = terminalView.window else { return }
+            _ = window.makeFirstResponder(nil)
+            _ = window.makeFirstResponder(terminalView)
+        }
     }
 
     private func loadWorkflow() {
