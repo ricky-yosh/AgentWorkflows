@@ -119,7 +119,7 @@ private struct AppCommands: Commands {
             Button("Copy Cache Path") {
                 NotificationCenter.default.post(name: .awSessionCopyCachePath, object: nil)
             }
-            .keyboardShortcut("c", modifiers: [.command, .option, .shift])
+            .keyboardShortcut("c", modifiers: [.command, .option])
             .disabled(isSessionSelected != true)
 
             Divider()
