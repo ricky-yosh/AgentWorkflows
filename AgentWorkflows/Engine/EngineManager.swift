@@ -114,6 +114,14 @@ final class EngineManager {
         engines[sessionID]?[tool]
     }
 
+    /// Moves a tool to the end of the tool order so it becomes the active terminal.
+    /// Used by idle tool swaps to ensure `activeTerminalTool` reflects the new choice.
+    func promoteToLastTool(_ tool: String, for sessionID: UUID) {
+        guard toolOrder[sessionID]?.contains(tool) == true else { return }
+        toolOrder[sessionID]?.removeAll { $0 == tool }
+        toolOrder[sessionID]?.append(tool)
+    }
+
     func workflowEngine(for sessionID: UUID) -> WorkflowEngine? {
         workflowEngines[sessionID]
     }
@@ -189,6 +197,7 @@ final class EngineManager {
         engines[sessionID]?.values.forEach { $0.terminate() }
         engines[sessionID] = nil
         toolOrder[sessionID] = nil
+        idleToolOverrides[sessionID] = nil
     }
 
     private static func signalFilePath(for session: Session) -> String {

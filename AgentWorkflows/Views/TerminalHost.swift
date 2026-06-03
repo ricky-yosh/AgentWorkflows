@@ -10,6 +10,7 @@ struct TerminalHost: View {
     @Environment(SettingsStore.self) private var settingsStore
     @State private var hoveringRestart = false
     @State private var pendingToolSwitch: CLIPreset? = nil
+    @State private var pendingEngineStart: DispatchWorkItem? = nil
 
     private var activeTerminalTool: String? {
         engineManager.activeTools(for: session.id).last
@@ -105,7 +106,7 @@ struct TerminalHost: View {
             Image(systemName: "keyboard")
                 .font(.system(size: 12))
                 .foregroundColor(Color(nsColor: .tertiaryLabelColor))
-            if !session.workflowName.isEmpty && session.state == .running {
+            if engineManager.workflowEngine(for: session.id)?.activeLoopDriver != nil {
                 Text("Terminal \u{2014} \(agentDisplayName)")
                     .font(.system(size: 11, weight: .medium))
                     .foregroundColor(Color(nsColor: .secondaryLabelColor))
@@ -166,8 +167,10 @@ struct TerminalHost: View {
         engineManager.setIdleToolOverride(preset, for: session.id)
         let newTool = idleTool
         engineManager.existingEngine(for: session.id, tool: oldTool)?.terminate()
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+        scheduleEngineStart(delay: 0.3) {
             let engine = engineManager.engine(for: session.id, tool: newTool)
+            engineManager.promoteToLastTool(newTool, for: session.id)
+            if case .terminated = engine.engineState { engine.terminate() }
             try? engine.start(workingDirectory: session.workingDirectory, tool: newTool)
         }
     }
@@ -176,10 +179,18 @@ struct TerminalHost: View {
         let tool = activeTerminalTool ?? idleTool
         let engine = engineManager.engine(for: session.id, tool: tool)
         engine.terminate()
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+        scheduleEngineStart(delay: 0.5) {
             let restartedEngine = engineManager.engine(for: session.id, tool: tool)
+            if case .terminated = restartedEngine.engineState { restartedEngine.terminate() }
             try? restartedEngine.start(workingDirectory: session.workingDirectory, tool: tool)
         }
+    }
+
+    private func scheduleEngineStart(delay: TimeInterval, work: @escaping () -> Void) {
+        pendingEngineStart?.cancel()
+        let item = DispatchWorkItem(block: work)
+        pendingEngineStart = item
+        DispatchQueue.main.asyncAfter(deadline: .now() + delay, execute: item)
     }
 
     // MARK: - Shell Banner

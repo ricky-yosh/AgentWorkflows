@@ -76,10 +76,7 @@ nonisolated enum CLIPreset: String, CaseIterable, Codable, Identifiable {
                 terminalArgs: []
             )
         case .codex:
-            return InvocationRecipe(
-                binaryName: "codex",
-                terminalArgs: ["--full-auto"]
-            )
+            return InvocationRecipe(binaryName: "codex")
         case .pi:
             return InvocationRecipe(binaryName: "pi")
         case .openCode:

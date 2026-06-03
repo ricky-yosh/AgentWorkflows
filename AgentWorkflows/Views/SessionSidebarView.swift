@@ -63,7 +63,7 @@ struct SessionSidebarView: View {
                                     Button("Copy Cache Path") {
                                         copyCachePath(session: session)
                                     }
-                                    .keyboardShortcut("c", modifiers: [.command, .option, .shift])
+                                    .keyboardShortcut("c", modifiers: [.command, .option])
                                     Divider()
                                     Button("Rename…") {
                                         sessionToRename = session

@@ -350,11 +350,16 @@ struct FileRowView: View {
     }
 
     private var relativePath: String {
-        if let sessionDir = sessionDirectory, url.path.hasPrefix(sessionDir.path + "/") {
-            return String(url.path.dropFirst(sessionDir.path.count + 1))
+        let workingDir: URL?
+        if let awDir = awDirectory {
+            workingDir = awDir.deletingLastPathComponent()
+        } else if let sessionDir = sessionDirectory {
+            workingDir = sessionDir.deletingLastPathComponent().deletingLastPathComponent()
+        } else {
+            workingDir = nil
         }
-        if let awDir = awDirectory, url.path.hasPrefix(awDir.path + "/") {
-            return String(url.path.dropFirst(awDir.path.count + 1))
+        if let wd = workingDir, url.path.hasPrefix(wd.path + "/") {
+            return String(url.path.dropFirst(wd.path.count + 1))
         }
         return url.lastPathComponent
     }

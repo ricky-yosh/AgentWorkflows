@@ -17,7 +17,7 @@ struct SideBySideDiffView: View {
 
     var body: some View {
         GeometryReader { outerGeo in
-            if outerGeo.size.width >= 900 {
+            if outerGeo.size.width >= 700 {
                 let paneWidth = max(200, floor((outerGeo.size.width - diffConnectorWidth) / 2))
 
                 ScrollViewReader { proxy in
