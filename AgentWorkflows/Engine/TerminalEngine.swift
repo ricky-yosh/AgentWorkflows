@@ -8,7 +8,11 @@ final class TerminalEngine: AgentEngine {
     private(set) var engineState: EngineState = .idle
     let terminalView: LocalProcessTerminalView
     var templateResolver: TemplateResolver?
-    var toolDefinition: CLIToolDefinition?
+    var toolDefinition: CLIToolDefinition? {
+        didSet {
+            configureShiftEnterForTool()
+        }
+    }
     var onStepComplete: (() -> Void)?
     var onProcessExit: (() -> Void)?
     var onProcessReady: (() -> Void)?
@@ -117,6 +121,23 @@ final class TerminalEngine: AgentEngine {
         } else {
             debugLog("[engine] inject \(stripped.count)ch — queued (process not ready)")
             pendingPrompt = pasted
+        }
+    }
+
+    /// OpenCode needs ESC+CR to work around charmbracelet/x/input #1505.
+    /// Everything else uses CSI u (`ESC [ 13 ; 2 u`) which crossterm parses
+    /// as Shift+Enter when the Kitty keyboard protocol is negotiated.
+    private func configureShiftEnterForTool() {
+        guard let view = terminalView as? ScrollTrackingTerminalView else {
+            NSLog("[TerminalEngine] configureShiftEnterForTool: view is not ScrollTrackingTerminalView")
+            return
+        }
+        let toolName = toolDefinition?.name ?? "nil"
+        if toolName == "opencode" {
+            view.tuiShiftEnterBytes = [0x1B, 0x0D]
+            NSLog("[TerminalEngine] configureShiftEnterForTool: opencode → ESC+CR")
+        } else {
+            NSLog("[TerminalEngine] configureShiftEnterForTool: %@ → bracketed paste (default)", toolName)
         }
     }
 

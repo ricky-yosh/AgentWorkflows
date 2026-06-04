@@ -36,13 +36,12 @@ import SwiftTerm
 ///   ``scrollWheel`` does not reliably generate these for trackpad continuous
 ///   deltas, so we accumulate `scrollingDeltaY` and emit one event per line.
 ///
-/// - **Shift+Enter**: ESC+CR (`\x1b\r`) is sent in TUI mode.
-///   charmbracelet/x/input parses Kitty/modifyOtherKeys sequences correctly,
-///   but OpenCode has a command-routing bug (#1505) where structural
-///   Shift+Enter events fail to reach the textarea and fall through to submit.
-///   ESC+CR is the Ghostty-proven workaround that bypasses the interceptor.
-///   When the Kitty protocol is formally negotiated, SwiftTerm's own encoder
-///   takes over instead.
+/// - **Shift+Enter**: CSI u (`\x1b[13;2u`) is sent in TUI mode by default,
+///   which crossterm (Ratatui, Codex) and other modern TUI libraries parse
+///   as Shift+Enter.  The sequence is sent when the Kitty keyboard protocol
+///   is negotiated, the alternate screen is active, or mouse reporting is on.
+///   OpenCode overrides `tuiShiftEnterBytes` to ESC+CR (`\x1b\r`) to bypass
+///   charmbracelet/x/input command-routing bug #1505.
 final class ScrollTrackingTerminalView: LocalProcessTerminalView {
 
     // ----------------------------------------------------------------
@@ -54,6 +53,13 @@ final class ScrollTrackingTerminalView: LocalProcessTerminalView {
 
     /// Accumulates sub-line trackpad scroll deltas for TUI SGR synthesis.
     private var scrollAccumulator: CGFloat = 0
+
+    /// Byte sequence sent on Shift+Enter when a TUI app is active (Kitty
+    /// protocol negotiated, alternate screen, or mouse reporting).  Defaults
+    /// to CSI u (`ESC [ 13 ; 2 u`), which crossterm parses as Shift+Enter.
+    /// OpenCode overrides this to ESC+CR to work around a charmbracelet/x/input
+    /// command-routing bug (#1505).
+    var tuiShiftEnterBytes: [UInt8] = [0x1B, 0x5B, 0x31, 0x33, 0x3B, 0x32, 0x75]
 
     // ----------------------------------------------------------------
     // MARK: - Init / deinit
@@ -205,16 +211,23 @@ final class ScrollTrackingTerminalView: LocalProcessTerminalView {
             let kittyEmpty = self.terminal.keyboardEnhancementFlags.isEmpty
             let isAlt = self.terminal.isCurrentBufferAlternate
             let mouseOff = self.terminal.mouseMode == .off
+            let bytes = self.tuiShiftEnterBytes
 
-            if isAlt || !mouseOff {
-                self.process?.send(data: ArraySlice([0x1B, 0x0D]))
-            } else if kittyEmpty {
+            NSLog("[keyDown] Shift+Enter detected | isAlt=%d mouseOff=%d kittyEmpty=%d | sending %d bytes: %@",
+                  isAlt ? 1 : 0, mouseOff ? 1 : 0, kittyEmpty ? 1 : 0,
+                  bytes.count,
+                  bytes.map { String(format: "%02x", $0) }.joined(separator: " "))
+
+            if !kittyEmpty || isAlt || !mouseOff {
+                // TUI or Kitty mode — send the tool-specific byte sequence to PTY.
+                NSLog("[keyDown] → sending %d bytes to PTY", bytes.count)
+                self.process?.send(data: ArraySlice(bytes))
+            } else {
+                NSLog("[keyDown] → normal path: sending LF (0x0A) to PTY")
                 if let p = self.process {
                     p.send(data: ArraySlice([0x0A]))
                 }
                 self.feed(byteArray: ArraySlice([0x0D, 0x0A]))
-            } else {
-                original(self, selector, event)
             }
         }
 
