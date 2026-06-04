@@ -224,7 +224,7 @@ struct SessionDetailView<Header: View>: View {
                 .opacity(selectedTab == .files ? 1 : 0)
                 .allowsHitTesting(selectedTab == .files)
 
-            SessionDiffView(session: session)
+            SessionDiffView(session: session, isVisible: selectedTab == .diff)
                 .opacity(selectedTab == .diff ? 1 : 0)
                 .allowsHitTesting(selectedTab == .diff)
 

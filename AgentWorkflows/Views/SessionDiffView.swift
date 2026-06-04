@@ -4,6 +4,7 @@ import Foundation
 
 struct SessionDiffView: View {
     let session: Session
+    let isVisible: Bool
 
     @State private var fileDiffs: [FileDiff] = []
     @State private var rawDiff: String = ""
@@ -18,6 +19,14 @@ struct SessionDiffView: View {
     @State private var expansionState: [String: Bool] = [:]
     @State private var sidebarVisible: Bool = true
     @State private var filesPanelCollapsed: Bool = false
+
+    @State private var debounceTask: Task<Void, Never>?
+    @State private var refreshGeneration: UInt64 = 0
+    private let minRefreshInterval: TimeInterval = 1.5
+
+    private var workingDirectoryURL: URL {
+        URL(fileURLWithPath: session.workingDirectory)
+    }
 
     private var filteredDiffs: [FileDiff] {
         guard !filterQuery.isEmpty else { return fileDiffs }
@@ -124,10 +133,20 @@ struct SessionDiffView: View {
             }
         }
         .task(id: session.id.uuidString) {
-            let workingDirectory = URL(fileURLWithPath: session.workingDirectory)
-            watcher.onChange = { Task { await refresh() } }
-            watcher.start(watching: workingDirectory)
-            await refresh()
+            watcher.onChange = { [self] in scheduleRefresh() }
+            if isVisible {
+                watcher.start(watching: workingDirectoryURL)
+                await refresh()
+            }
+        }
+        .onChange(of: isVisible) { _, newValue in
+            debounceTask?.cancel()
+            if newValue {
+                watcher.start(watching: workingDirectoryURL)
+                Task { await refresh() }
+            } else {
+                watcher.stop()
+            }
         }
         .onChange(of: fileDiffs) { _, newDiffs in
             if let selected = selectedFilePath {
@@ -236,6 +255,17 @@ struct SessionDiffView: View {
                 .buttonStyle(.borderless)
                 .help("Copy full patch to clipboard")
             }
+
+            Button {
+                debounceTask?.cancel()
+                Task { await refresh() }
+            } label: {
+                Image(systemName: "arrow.clockwise")
+                    .font(.system(size: 12))
+            }
+            .buttonStyle(.borderless)
+            .help("Refresh diff now")
+            .disabled(isLoading)
         }
         .padding(.horizontal, 10)
         .padding(.vertical, 7)
@@ -339,14 +369,30 @@ struct SessionDiffView: View {
 
     // MARK: - Refresh
 
+    private func scheduleRefresh() {
+        debounceTask?.cancel()
+        debounceTask = Task {
+            try? await Task.sleep(for: .seconds(minRefreshInterval))
+            guard !Task.isCancelled else { return }
+            guard isVisible else { return }
+            await refresh()
+        }
+    }
+
     private func refresh() async {
+        guard isVisible else { return }
+        refreshGeneration += 1
+        let generation = refreshGeneration
+
         isLoading = true
         loadError = nil
         rawDiff = ""
-        let workingDirectory = URL(fileURLWithPath: session.workingDirectory)
         let result = await Task.detached {
-            SystemGitDiffRunner().run(workingDirectory: workingDirectory)
+            SystemGitDiffRunner().run(workingDirectory: workingDirectoryURL)
         }.value
+
+        guard generation == refreshGeneration else { return }
+
         switch result {
         case .success(let output):
             rawDiff = output
@@ -412,6 +458,7 @@ nonisolated struct SystemGitDiffRunner: GitDiffRunner {
             currentPhaseIndex: 0,
             currentStepIndex: 0,
             completedStepIDs: []
-        )
+        ),
+        isVisible: true
     )
 }
